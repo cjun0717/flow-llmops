@@ -230,3 +230,5 @@ coverage
 /cypress/videos/
 /cypress/screenshots/
 *.tsbuildinfo
+
+resources

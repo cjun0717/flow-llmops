@@ -1,0 +1,329 @@
+x-logging: &default-logging
+  options:
+    max-size: "50m"
+    max-file: "1"
+  driver: json-file
+
+services:
+  # langfuse 也需要用到redis组件
+  redis:
+    image: redis:7
+    container_name: cj-redis
+    env_file:
+      - .env
+    #environment:
+    #  - name=value
+    ports:
+      - ${REDIS_PORT}:6379
+    volumes:
+      - redis_data:/data
+    networks:
+      - cj-network
+    command: --requirepass ${REDIS_AUTH} --maxmemory 128mb --maxmemory-policy noeviction
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_AUTH}", "ping"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+      start_period: 30s
+    restart: always
+    logging: *default-logging
+  pgvector:
+    image: pgvector/pgvector:pg16
+    container_name: cj-pgvector
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${PGV_USER}
+      POSTGRES_PASSWORD: ${PGV_PASSWORD}
+    ports:
+      - ${PGV_PORT}:5432
+    volumes:
+      - pgvector_data:/var/lib/postgresql/data
+      - ./resources/init_pgvector.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - cj-network
+    healthcheck:
+       test: ["CMD-SHELL", "pg_isready -U ${PGV_USER}"]
+       interval: 10s
+       timeout: 5s
+       retries: 5
+    logging: *default-logging
+  
+  # langfuse,milvus都需要用到minio组件
+  minio:
+    image: cgr.dev/chainguard/minio:latest
+    container_name: cj-minio
+    env_file:
+      - .env
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - ${MINIO_PORT}:9000
+      - ${MINIO_CONSOLE_PORT}:9001
+    volumes:
+      - minio_data:/data
+    networks:
+      - cj-network
+    entrypoint: sh
+    command: >
+      -c '
+      mkdir -p /data/langfuse &&
+      mkdir -p /data/llmops &&
+      mkdir -p /data/milvus &&
+      mkdir -p /data/k2agent && 
+      minio server /data --address ":9000" --console-address ":9001"
+      '
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 1s
+      timeout: 5s
+      retries: 5
+      start_period: 1s
+    restart: always
+    logging: *default-logging
+  
+  # langfuse也需要用到postgres组件
+  postgres:
+    image: postgres:17
+    container_name: cj-postgres
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - ${POSTGRES_PORT}:5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./resources/init_postgres.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - cj-network
+    healthcheck:
+       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+       interval: 30s
+       timeout: 20s
+       retries: 3
+       start_period: 30s
+    restart: always
+    logging: *default-logging
+  
+  # langfuse需要用到clickhouse组件
+  clickhouse:
+    image: clickhouse/clickhouse-server:latest
+    container_name: cj-clickhouse
+    env_file:
+      - .env
+    environment:
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+    ports:
+      - ${CLICKHOUSE_PORT}:8123
+      - ${CLICKHOUSE_CONSOLE_PORT}:9000
+    user: "101:101"
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - clickhouse_logs:/var/log/clickhouse-server
+    networks:
+      - cj-network
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 1s
+    restart: always
+    logging: *default-logging
+
+  langfuse-worker:
+    image: langfuse/langfuse-worker:3
+    container_name: cj-langfuse-worker
+    env_file:
+      - .env
+    environment: &langfuse-worker-env
+      NEXTAUTH_URL: http://localhost:3000
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/langfuse
+      TELEMETRY_ENABLED: ${TELEMETRY_ENABLED:-true}
+      LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES: ${LANGFUSE_ENABLE_EXPERIMENTAL_FEATURES:-false}
+      CLICKHOUSE_MIGRATION_URL: clickhouse://clickhouse:9000
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_CLUSTER_ENABLED: ${CLICKHOUSE_CLUSTER_ENABLED:-false}
+      LANGFUSE_USE_AZURE_BLOB: ${LANGFUSE_USE_AZURE_BLOB:-false}
+      LANGFUSE_S3_EVENT_UPLOAD_BUCKET: ${LANGFUSE_S3_EVENT_UPLOAD_BUCKET:-langfuse}
+      LANGFUSE_S3_EVENT_UPLOAD_REGION: ${LANGFUSE_S3_EVENT_UPLOAD_REGION:-auto}
+      LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://minio:9000
+      LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: ${LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE:-true}
+      LANGFUSE_S3_EVENT_UPLOAD_PREFIX: ${LANGFUSE_S3_EVENT_UPLOAD_PREFIX:-events/}
+      LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: ${LANGFUSE_S3_MEDIA_UPLOAD_BUCKET:-langfuse}
+      LANGFUSE_S3_MEDIA_UPLOAD_REGION: ${LANGFUSE_S3_MEDIA_UPLOAD_REGION:-auto}
+      LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://localhost:${MINIO_PORT}
+      LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: ${LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE:-true}
+      LANGFUSE_S3_MEDIA_UPLOAD_PREFIX: ${LANGFUSE_S3_MEDIA_UPLOAD_PREFIX:-media/}
+      LANGFUSE_S3_BATCH_EXPORT_ENABLED: ${LANGFUSE_S3_BATCH_EXPORT_ENABLED:-false}
+      LANGFUSE_S3_BATCH_EXPORT_BUCKET: ${LANGFUSE_S3_BATCH_EXPORT_BUCKET:-langfuse}
+      LANGFUSE_S3_BATCH_EXPORT_PREFIX: ${LANGFUSE_S3_BATCH_EXPORT_PREFIX:-exports/}
+      LANGFUSE_S3_BATCH_EXPORT_REGION: ${LANGFUSE_S3_BATCH_EXPORT_REGION:-auto}
+      LANGFUSE_S3_BATCH_EXPORT_ENDPOINT: http://minio:9000
+      LANGFUSE_S3_BATCH_EXPORT_EXTERNAL_ENDPOINT: http://localhost:${MINIO_PORT}
+      LANGFUSE_S3_BATCH_EXPORT_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      LANGFUSE_S3_BATCH_EXPORT_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      LANGFUSE_S3_BATCH_EXPORT_FORCE_PATH_STYLE: ${LANGFUSE_S3_BATCH_EXPORT_FORCE_PATH_STYLE:-true}
+      REDIS_TLS_ENABLED: ${REDIS_TLS_ENABLED:-false}
+    ports:
+      - ${LANGFUSE_WORKER_PORT}:3030
+    networks:
+      - cj-network
+    depends_on: &langfuse-depends-on
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    restart: always
+    logging: *default-logging
+
+  langfuse-web:
+    image: langfuse/langfuse:3
+    container_name: cj-langfuse-web
+    env_file:
+      - .env
+    environment:
+      <<: *langfuse-worker-env
+    ports:
+      - ${LANGFUSE_WEB_PORT}:3000
+    networks:
+      - cj-network
+    depends_on: *langfuse-depends-on
+    restart: always
+    logging: *default-logging
+  
+  # milvus需要使用的组件
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.25
+    container_name: cj-milvus-etcd
+    env_file:
+      - .env
+    environment:
+      - ETCD_AUTO_COMPACTION_MODE=revision
+      - ETCD_AUTO_COMPACTION_RETENTION=1000
+      - ETCD_QUOTA_BACKEND_BYTES=4294967296
+      - ETCD_SNAPSHOT_COUNT=50000
+    volumes:
+      - etcd_data:/etcd
+    networks:
+      - cj-network
+    command: etcd -advertise-client-urls=http://etcd:2379 -listen-client-urls http://0.0.0.0:2379 --data-dir /etcd
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+      start_period: 10s
+    restart: always
+    logging: *default-logging
+  
+  # milvus 组件
+  standalone:
+    image: milvusdb/milvus:v2.6.14
+    container_name: cj-milvus-standalone
+    env_file:
+      - .env
+    environment:
+      ETCD_ENDPOINTS: etcd:2379
+      MINIO_ADDRESS: minio:9000
+      MINIO_ACCESS_KEY_ID: ${MINIO_ROOT_USER}
+      MINIO_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD}
+      # MQ_TYPE: woodpecker
+    ports:
+      - "${MILVUS_CLIENT_PORT}:19530"   # 客户端连接
+      - "${MILVUS_METRIC_PORT}:9091"     # 健康检查指标
+    volumes:
+      - milvus_data:/var/lib/milvus
+    networks:
+      - cj-network
+    depends_on:
+      etcd: 
+        condition: service_healthy
+      minio: 
+        condition: service_healthy
+    command: ["milvus", "run", "standalone"]
+    security_opt:
+      - seccomp:unconfined
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/healthz"]
+      interval: 30s
+      start_period: 90s
+      timeout: 20s
+      retries: 3
+    restart: always
+    logging: *default-logging
+  
+  # neo4j 组件
+  neo4j:
+    image: neo4j:2025.06.0
+    container_name: cj-neo4j
+    env_file:
+      - .env
+    environment:
+      - NEO4J_AUTH=${NEO4J_AUTH:-neo4j/chenjun1234}
+      - NEO4J_apoc_export_file_enabled=true
+      - NEO4J_apoc_import_file_enabled=true
+      - NEO4J_apoc_import_file_use__neo4j__config=true
+    ports:
+      - ${HTTP_PORT}:7474
+      - ${BOLT_PORT}:7687
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+      - neo4j_import:/import
+      - ./resources:/plugins
+    networks:
+      - cj-network
+    healthcheck:
+      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "${GRAPHDB_PASSWORD}", "RETURN 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: always
+    logging: *default-logging
+
+
+volumes:
+  postgres_data:
+    driver: local
+  pgvector_data:
+    driver: local
+  clickhouse_data:
+    driver: local
+  clickhouse_logs:
+    driver: local
+  minio_data:
+    driver: local
+  redis_data:
+    driver: local
+  etcd_data:
+    driver: local
+  milvus_data:
+    driver: local
+  neo4j_data:
+    driver: local
+  neo4j_logs:
+    driver: local
+  neo4j_import:
+    driver: local
+
+  
+networks:
+  cj-network:
+    driver: bridge
+    name: cj-network
