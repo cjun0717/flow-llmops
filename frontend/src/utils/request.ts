@@ -74,6 +74,11 @@ const baseFetch = <T>(url: string, fetchOptions: FetchOptionType): Promise<T> =>
       globalThis
         .fetch(urlWithPrefix, options as RequestInit)
         .then(async (res) => {
+          const contentType = res.headers.get('Content-Type') || ''
+          if (!contentType.includes('application/json')) {
+            throw new Error(`接口返回非JSON响应，HTTP状态码：${res.status}`)
+          }
+
           const json = await res.json()
           if (json.code === httpCode.success) {
             resolve(json)
@@ -85,12 +90,13 @@ const baseFetch = <T>(url: string, fetchOptions: FetchOptionType): Promise<T> =>
           } else if (json.code === httpCode.forbidden) {
             await router.push({ name: 'errors-forbidden' })
           } else {
-            Message.error(json.message)
-            reject(new Error(json.message))
+            const message = json.message || `接口请求失败，HTTP状态码：${res.status}`
+            Message.error(message)
+            reject(new Error(message))
           }
         })
         .catch((err) => {
-          Message.error(err.message)
+          Message.error(err?.message || '接口请求失败')
           reject(err)
         })
     }),
@@ -143,6 +149,10 @@ const handleStream = (
 
     // 2.构建reader以及decoder
     const reader = response.body?.getReader()
+    if (!reader) {
+      reject(new Error('流式响应为空'))
+      return
+    }
     const decoder = new TextDecoder('utf-8')
     let buffer = ''
     let event = ''
@@ -150,7 +160,7 @@ const handleStream = (
 
     // 3.构建read函数用于去读取数据
     const read = () => {
-      reader?.read().then((result: any) => {
+      reader.read().then((result: any) => {
         if (result.done) {
           resolve()
           return
@@ -186,7 +196,7 @@ const handleStream = (
         }
 
         read()
-      })
+      }).catch(reject)
     }
 
     // 4.调用read函数去执行获取对应的数据

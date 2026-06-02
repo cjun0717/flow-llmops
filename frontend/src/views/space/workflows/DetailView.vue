@@ -41,6 +41,7 @@ import ToolNodeInfo from './components/infos/ToolNodeInfo.vue'
 import QuestionClassifierNodeInfo from './components/infos/QuestionClassifierNodeInfo.vue'
 import IterationNodeInfo from './components/infos/IterationNodeInfo.vue'
 import EndNodeInfo from './components/infos/EndNodeInfo.vue'
+import { useWorkflowDebugResults } from './hooks/use-workflow-debug-results'
 
 // 1.定义页面所需数据
 const route = useRoute()
@@ -209,6 +210,19 @@ const {
 const { nodes, edges, loadDraftGraph } = useGetDraftGraph()
 const { loading: publishWorkflowLoading, handlePublishWorkflow } = usePublishWorkflow()
 const { handleCancelPublish } = useCancelPublishWorkflow()
+const { clearNodeDebugResults } = useWorkflowDebugResults()
+
+const refreshWorkflow = async () => {
+  await loadWorkflow(String(route.params?.workflow_id ?? ''))
+}
+
+const onDebugSuccess = async () => {
+  workflow.value = {
+    ...workflow.value,
+    is_debug_passed: true,
+  }
+  await refreshWorkflow()
+}
 
 // 2.定义自适应布局处理器
 const autoLayout = () => {
@@ -435,6 +449,7 @@ onViewportChange((viewportTransform) => {
 
 // 页面DOM挂载完毕后加载数据
 onMounted(async () => {
+  clearNodeDebugResults()
   const workflow_id = String(route.params?.workflow_id ?? '')
   await loadWorkflow(workflow_id)
   await loadDraftGraph(workflow_id)
@@ -495,7 +510,7 @@ onMounted(async () => {
               :loading="publishWorkflowLoading"
               type="primary"
               class="!rounded-tl-lg !rounded-bl-lg"
-              @click="() => handlePublishWorkflow(String(workflow.id))"
+              @click="() => handlePublishWorkflow(String(workflow.id), refreshWorkflow)"
             >
               更新发布
             </a-button>
@@ -564,7 +579,7 @@ onMounted(async () => {
                 </a-button>
                 <template #content>
                   <div
-                    class="bg-white borer border-gray-200 w-[240px] shadow rounded-xl overflow-hidden py-2"
+                    class="bg-white border border-gray-200 w-[240px] max-h-[72vh] shadow rounded-xl overflow-y-auto overscroll-contain py-2"
                   >
                     <!-- 开始节点 -->
                     <div
@@ -795,6 +810,7 @@ onMounted(async () => {
         <debug-modal
           :workflow_id="String(route.params?.workflow_id ?? '')"
           v-model:visible="isDebug"
+          @debug-success="onDebugSuccess"
         />
         <!-- 节点信息容器 -->
         <start-node-info

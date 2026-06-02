@@ -17,4 +17,62 @@
   body {
     @apply min-h-[600px] min-w-[1200px] h-full w-full;
   }
+
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  textarea,
+  select,
+  .arco-input,
+  .arco-textarea,
+  .arco-input-wrapper,
+  .arco-textarea-wrapper,
+  .arco-select-view,
+  .arco-input-tag,
+  .arco-picker {
+    outline: none !important;
+  }
+
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):focus,
+  textarea:focus,
+  select:focus,
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):focus-visible,
+  textarea:focus-visible,
+  select:focus-visible,
+  .arco-input:focus,
+  .arco-input:focus-visible,
+  .arco-textarea:focus,
+  .arco-textarea:focus-visible,
+  .arco-input-wrapper:focus,
+  .arco-input-wrapper:focus-within,
+  .arco-input-wrapper.arco-input-focus,
+  .arco-input-wrapper.arco-input-wrapper-focus,
+  .arco-textarea-wrapper:focus,
+  .arco-textarea-wrapper:focus-within,
+  .arco-textarea-wrapper.arco-textarea-focus,
+  .arco-textarea-wrapper.arco-textarea-wrapper-focus,
+  .arco-select-view:focus,
+  .arco-select-view:focus-within,
+  .arco-select-view.arco-select-view-focus,
+  .arco-input-tag:focus,
+  .arco-input-tag:focus-within,
+  .arco-input-tag.arco-input-tag-focus,
+  .arco-picker:focus,
+  .arco-picker:focus-within,
+  .arco-picker.arco-picker-focused {
+    outline: none !important;
+    box-shadow: none !important;
+  }
+
+  .arco-input-wrapper:not(.arco-input-error):focus-within,
+  .arco-input-wrapper:not(.arco-input-error).arco-input-focus,
+  .arco-input-wrapper:not(.arco-input-error).arco-input-wrapper-focus,
+  .arco-textarea-wrapper:not(.arco-textarea-error):focus-within,
+  .arco-textarea-wrapper:not(.arco-textarea-error).arco-textarea-focus,
+  .arco-textarea-wrapper:not(.arco-textarea-error).arco-textarea-wrapper-focus,
+  .arco-select-view:not(.arco-select-view-error):focus-within,
+  .arco-select-view:not(.arco-select-view-error).arco-select-view-focus,
+  .arco-input-tag:not(.arco-input-tag-error):focus-within,
+  .arco-input-tag:not(.arco-input-tag-error).arco-input-tag-focus,
+  .arco-picker:not(.arco-picker-error).arco-picker-focused {
+    border-color: transparent !important;
+  }
 }

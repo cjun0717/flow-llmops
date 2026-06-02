@@ -108,16 +108,16 @@ onMounted(() => {
           <!-- 顶部知识库名称 -->
           <div class="flex items-center gap-3 mb-3">
             <!-- 左侧图标 -->
-            <a-avatar :size="40" shape="square" :image-url="dataset.icon"/>
+            <a-avatar :size="40" shape="square" class="rounded-lg flex-shrink-0" :image-url="dataset.icon"/>
             <!-- 右侧知识库信息 -->
-            <div class="flex flex-1 justify-between">
-              <div class="flex flex-col">
+            <div class="flex flex-1 min-w-0 justify-between">
+              <div class="flex flex-col min-w-0">
                 <router-link
                     :to="{
                     name: 'space-datasets-documents-list',
                     params: { dataset_id: dataset.id },
                   }"
-                    class="text-base text-gray-900 font-bold"
+                    class="text-base text-gray-900 font-bold line-clamp-1 break-all"
                 >{{ dataset.name }}
                 </router-link>
                 <div class="text-xs text-gray-500 line-clamp-1">
@@ -128,7 +128,7 @@ onMounted(() => {
               </div>
               <!-- 操作按钮 -->
               <a-dropdown position="br">
-                <a-button type="text" size="small" class="rounded-lg !text-gray-700">
+                <a-button type="text" size="small" class="rounded-lg !text-gray-700 flex-shrink-0">
                   <template #icon>
                     <icon-more/>
                   </template>
@@ -226,9 +226,9 @@ onMounted(() => {
                   // 2.使用普通异步函数完成上传
                   const uploadTask = async () => {
                     try {
-                      await handleUploadImage(fileItem.file as File)
-                      form.icon = image_url
-                      onSuccess(image_url)
+                      const uploadedImageUrl = await handleUploadImage(fileItem.file as File)
+                      form.icon = uploadedImageUrl
+                      onSuccess(uploadedImageUrl)
                     } catch (error) {
                       onError(error)
                     }

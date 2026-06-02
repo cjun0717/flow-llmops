@@ -48,14 +48,22 @@ watch(
         >
           创建 AI 应用
         </a-button>
-        <a-button
+        <a-dropdown
           v-if="route.path.startsWith('/space/tools')"
-          type="primary"
-          class="rounded-lg"
-          @click="createType = 'tool'"
+          trigger="click"
+          @select="(value) => (createType = String(value))"
         >
-          创建自定义插件
-        </a-button>
+          <a-button type="primary" class="rounded-lg">
+            创建自定义插件
+            <template #icon>
+              <icon-down />
+            </template>
+          </a-button>
+          <template #content>
+            <a-doption value="tool">创建 OpenAPI 插件</a-doption>
+            <a-doption value="mcp_tool">添加 MCP 服务器</a-doption>
+          </template>
+        </a-dropdown>
         <a-button
           v-if="route.path.startsWith('/space/workflows')"
           type="primary"

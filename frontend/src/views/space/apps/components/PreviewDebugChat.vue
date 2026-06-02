@@ -144,8 +144,8 @@ const handleSubmit = async () => {
   // 5.6 调用hooks发起请求
   await handleDebugChat(props.app?.id, humanQuery, humanImageUrls, (event_response) => {
     // 5.7 提取流式事件响应数据以及事件名称
-    const event = event_response?.event
     const data = event_response?.data
+    const event = data?.event || event_response?.event
     const event_id = data?.id
     let agent_thoughts = messages.value[0].agent_thoughts
 

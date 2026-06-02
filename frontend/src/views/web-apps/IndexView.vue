@@ -239,8 +239,8 @@ const handleSubmit = async () => {
   }
   await handleWebAppChat(String(route.params?.token), req, (event_response) => {
     // 11.7 提取流式事件响应数据以及事件名称
-    const event = event_response?.event
     const data = event_response?.data
+    const event = data?.event || event_response?.event
     const event_id = data?.id
     let agent_thoughts = messages.value[0].agent_thoughts
 

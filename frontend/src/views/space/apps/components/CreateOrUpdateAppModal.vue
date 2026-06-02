@@ -119,9 +119,9 @@ watch(
                 // 2.使用普通异步函数完成上传
                 const uploadTask = async () => {
                   try {
-                    await handleUploadImage(fileItem.file as File)
-                    form.icon = image_url
-                    onSuccess(image_url)
+                    const uploadedImageUrl = await handleUploadImage(fileItem.file as File)
+                    form.icon = uploadedImageUrl
+                    onSuccess(uploadedImageUrl)
                   } catch (error) {
                     onError(error)
                   }

@@ -247,7 +247,7 @@ export const useUpdateDraftGraph = () => {
           source: edge.source,
           source_type: edge.source_type,
           // 新增起点连接句柄，实现一个节点有多个连接句柄
-          source_handle_id: edge?.source_handle_id || null,
+          source_handle_id: edge?.source_handle_id || edge?.sourceHandle || null,
           target: edge.target,
           target_type: edge.target_type,
         }
@@ -263,12 +263,13 @@ export const usePublishWorkflow = () => {
   const loading = ref(false)
 
   // 2.定义发布工作流处理器
-  const handlePublishWorkflow = async (workflow_id: string) => {
+  const handlePublishWorkflow = async (workflow_id: string, callback?: () => void | Promise<void>) => {
     try {
       // 3.调用api接口发布工作流
       loading.value = true
       const resp = await publishWorkflow(workflow_id)
       Message.success(resp.message)
+      await callback?.()
     } finally {
       loading.value = false
     }
@@ -309,12 +310,18 @@ export const useDebugWorkflow = () => {
   ) => {
     try {
       loading.value = true
+      error.value = ''
       const resp = await debugWorkflow(workflow_id, inputs, onData)
 
       // 2.1 判断响应内容是否存在，如果存在则表示该接口为非流式输出，意味着接口出错
       if (resp !== undefined) {
-        error.value = resp['message']
+        error.value = resp['message'] || '工作流运行失败'
+        return false
       }
+      return !error.value
+    } catch (err: any) {
+      error.value = err?.message || String(err || '') || '工作流运行失败'
+      return false
     } finally {
       loading.value = false
     }

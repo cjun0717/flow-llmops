@@ -72,16 +72,16 @@ watch(
           <!-- 顶部工作流名称 -->
           <div class="flex items-center gap-3 mb-3">
             <!-- 左侧图标 -->
-            <a-avatar :size="40" shape="square" :image-url="workflow.icon"/>
+            <a-avatar :size="40" shape="square" class="rounded-lg flex-shrink-0" :image-url="workflow.icon"/>
             <!-- 右侧信息 -->
-            <div class="flex flex-1 justify-between">
-              <div class="flex flex-col">
+            <div class="flex flex-1 min-w-0 justify-between">
+              <div class="flex flex-col min-w-0">
                 <router-link
                     :to="{
                     name: 'space-workflows-detail',
                     params: { workflow_id: workflow.id },
                   }"
-                    class="text-base text-gray-900 font-bold"
+                    class="text-base text-gray-900 font-bold line-clamp-1 break-all"
                 >
                   {{ workflow.name }}
                   <icon-check-circle-fill
@@ -95,7 +95,7 @@ watch(
               </div>
               <!-- 操作按钮 -->
               <a-dropdown position="br">
-                <a-button type="text" size="small" class="rounded-lg !text-gray-700">
+                <a-button type="text" size="small" class="rounded-lg !text-gray-700 flex-shrink-0">
                   <template #icon>
                     <icon-more/>
                   </template>

@@ -6,6 +6,7 @@ import { getReferencedVariables } from '@/utils/helper'
 import { apiPrefix } from '@/config'
 import { useGetBuiltinTool, useGetBuiltinTools, useGetCategories } from '@/hooks/use-builtin-tool'
 import { useGetApiTool, useGetApiToolProvidersWithPage } from '@/hooks/use-tool'
+import { useGetMcpTool, useGetMcpToolProvidersWithPage } from '@/hooks/use-mcp-tool'
 import type { ValidatedError } from '@arco-design/web-vue'
 
 // 1.定义自定义组件所需数据
@@ -28,8 +29,15 @@ const {
   api_tool_providers,
   loadApiToolProviders,
 } = useGetApiToolProvidersWithPage()
+const {
+  loading: getMcpToolProvidersLoading,
+  paginator: mcpPaginator,
+  mcp_tool_providers,
+  loadMcpToolProviders,
+} = useGetMcpToolProvidersWithPage()
 const { builtin_tool, loadBuiltinTool } = useGetBuiltinTool()
 const { api_tool, loadApiTool } = useGetApiTool()
+const { mcp_tool, loadMcpTool } = useGetMcpTool()
 const { builtin_tools, loadBuiltinTools } = useGetBuiltinTools()
 const { categories, loadCategories } = useGetCategories()
 const form = ref<Record<string, any>>({})
@@ -64,6 +72,7 @@ const handleShowToolsModal = async () => {
 
   // 3.2 调用API接口获取响应
   await loadApiToolProviders(true)
+  await loadMcpToolProviders(true)
   await loadBuiltinTools()
 }
 
@@ -76,8 +85,9 @@ const removeBindTool = () => {
 
 // 5.定义是否关联工具判断函数
 const isToolSelected = (provider: Record<string, any>, tool: Record<string, any>) => {
+  const providerId = provider.id ?? provider.name
   return (
-    form.value.tool?.provider?.name === provider.name && form.value.tool?.tool.name === tool.name
+    form.value.tool?.provider?.id === providerId && form.value.tool?.tool.name === tool.name
   )
 }
 
@@ -103,6 +113,26 @@ const handleSelectTool = async (provider_idx: number, tool_idx: number) => {
         name: apiTool.name,
         label: apiTool.name,
         description: apiTool.description,
+        params: {},
+      },
+    }
+  } else if (toolsActivateType.value === 'mcp_tool') {
+    const mcpToolProvider = mcp_tool_providers.value[provider_idx]
+    const mcpTool = mcpToolProvider['tools'][tool_idx]
+    selectTool = {
+      type: 'mcp_tool',
+      provider: {
+        id: mcpToolProvider.id,
+        name: mcpToolProvider.name,
+        label: mcpToolProvider.name,
+        icon: '',
+        description: mcpToolProvider.description,
+      },
+      tool: {
+        id: mcpTool.name,
+        name: mcpTool.name,
+        label: mcpTool.name,
+        description: mcpTool.description,
         params: {},
       },
     }
@@ -166,7 +196,7 @@ const handleSelectTool = async (provider_idx: number, tool_idx: number) => {
       form.value.params = params.map((param: any) => {
         return { key: param.name, value: param.default }
       })
-    } else {
+    } else if (selectTool.type === 'api_tool') {
       await loadApiTool(selectTool.provider.id, selectTool.tool.name)
       const inputs = api_tool.value.inputs
 
@@ -181,21 +211,42 @@ const handleSelectTool = async (provider_idx: number, tool_idx: number) => {
         }
       })
       form.value.params = []
+    } else {
+      await loadMcpTool(selectTool.provider.id, selectTool.tool.name)
+      const inputs = mcp_tool.value.inputs
+
+      form.value.inputs = inputs.map((item: any) => {
+        return {
+          name: item.name,
+          type: pythonTypeMap[item.type],
+          value_type: 'ref',
+          content: '',
+          ref: '',
+        }
+      })
+      form.value.params = []
     }
   }
 }
 
-// 7.滚动加载api工具列表
+// 7.滚动加载工具列表
 const handleScroll = async (event: UIEvent) => {
   // 7.1 获取滚动距离、可滚动的最大距离、客户端/浏览器窗口的高度
   const { scrollTop, scrollHeight, clientHeight } = event.target as HTMLElement
 
   // 7.2 判断是否滑动到底部
   if (scrollTop + clientHeight >= scrollHeight - 10) {
-    if (getApiToolProvidersLoading.value) {
+    if (toolsActivateType.value === 'api_tool' && getApiToolProvidersLoading.value) {
       return
     }
-    await loadApiToolProviders()
+    if (toolsActivateType.value === 'mcp_tool' && getMcpToolProvidersLoading.value) {
+      return
+    }
+    if (toolsActivateType.value === 'api_tool') {
+      await loadApiToolProviders()
+    } else if (toolsActivateType.value === 'mcp_tool') {
+      await loadMcpToolProviders()
+    }
   }
 }
 
@@ -349,7 +400,7 @@ onMounted(() => {
           <!-- 左侧标题 -->
           <div class="flex items-center gap-2 text-gray-700 font-semibold">
             <div class="">绑定插件</div>
-            <a-tooltip content="为工具节点绑定指定的扩展插件，支持插件广场以及自定义API插件。">
+            <a-tooltip content="为工具节点绑定指定的扩展插件，支持插件广场、自定义API插件以及MCP插件。">
               <icon-question-circle />
             </a-tooltip>
           </div>
@@ -368,11 +419,20 @@ onMounted(() => {
             <div class="flex items-center gap-2">
               <!-- 图标 -->
               <a-avatar
+                v-if="form?.tool?.provider?.icon"
                 :size="36"
                 shape="square"
                 class="rounded flex-shrink-0"
                 :image-url="form?.tool?.provider?.icon"
               />
+              <a-avatar
+                v-else
+                :size="36"
+                shape="square"
+                class="rounded flex-shrink-0 bg-gray-900 text-xs"
+              >
+                MCP
+              </a-avatar>
               <!-- 名称与描述信息 -->
               <div class="flex flex-col flex-1 gap-1 h-9">
                 <div class="text-gray-700 font-bold leading-[18px] line-clamp-1 break-all">
@@ -541,8 +601,11 @@ onMounted(() => {
           <!-- 标题 -->
           <div class="text-gray-900 font-bold text-lg mb-4">关联插件</div>
           <!-- 添加插件按钮 -->
-          <router-link :to="{ name: 'space-tools-list' }">
+          <router-link :to="{ name: 'space-tools-list', query: { create_type: 'tool' } }">
             <a-button long type="primary" class="rounded-lg mb-5">创建自定义插件</a-button>
+          </router-link>
+          <router-link :to="{ name: 'space-tools-list', query: { create_type: 'mcp_tool' } }">
+            <a-button long class="rounded-lg mb-5">添加 MCP 服务器</a-button>
           </router-link>
           <!-- 工具类别导航 -->
           <div class="flex flex-col gap-1 mb-4">
@@ -559,6 +622,13 @@ onMounted(() => {
             >
               <icon-translate />
               内置插件
+            </div>
+            <div
+              :class="`rounded-lg h-8 leading-8 px-3 flex items-center gap-2 cursor-pointer hover:bg-white hover:text-blue-700 ${toolsActivateType === 'mcp_tool' ? 'text-blue-700 bg-white' : 'text-gray-700'}`"
+              @click="toolsActivateType = 'mcp_tool'"
+            >
+              <icon-link />
+              MCP 插件
             </div>
           </div>
           <!-- 内置工具分类 -->
@@ -592,7 +662,13 @@ onMounted(() => {
           <!-- 标题与关闭按钮 -->
           <div class="w-full flex items-center justify-between gap-2 mb-7">
             <div class="text-lg font-bold text-gray-700">
-              {{ toolsActivateType === 'api_tool' ? '自定义插件' : '内置插件' }}
+              {{
+                toolsActivateType === 'api_tool'
+                  ? '自定义插件'
+                  : toolsActivateType === 'builtin_tool'
+                    ? '内置插件'
+                    : 'MCP 插件'
+              }}
             </div>
             <a-button
               size="mini"
@@ -705,6 +781,83 @@ onMounted(() => {
                 <!-- 加载数据中 -->
                 <a-col
                   v-if="paginator.current_page <= paginator.total_page"
+                  :span="24"
+                  class="!text-center"
+                >
+                  <a-space class="my-4">
+                    <a-spin />
+                    <div class="text-gray-400">加载中</div>
+                  </a-space>
+                </a-col>
+                <!-- 数据加载完成 -->
+                <a-col v-else :span="24" class="!text-center">
+                  <div class="text-gray-400 my-4">数据已加载完成</div>
+                </a-col>
+              </a-row>
+            </a-spin>
+          </div>
+          <!-- MCP插件列表 -->
+          <div v-if="toolsActivateType === 'mcp_tool'">
+            <a-spin
+              :loading="getMcpToolProvidersLoading"
+              class="block h-[calc(100vh-130px)] overflow-scroll scrollbar-w-none"
+              @scroll="handleScroll"
+            >
+              <div
+                v-for="(mcp_tool_provider, mcp_tool_provider_idx) in mcp_tool_providers"
+                :key="mcp_tool_provider.id"
+                class="flex flex-col gap-3 mb-3"
+              >
+                <!-- 提供者信息 -->
+                <div class="flex items-center gap-2 text-gray-900">
+                  <span>{{ mcp_tool_provider.name }}</span>
+                  <span class="text-[10px] leading-4 px-1.5 rounded bg-gray-900 text-white">
+                    MCP
+                  </span>
+                </div>
+                <!-- 工具列表 -->
+                <div class="flex flex-col gap-1">
+                  <div
+                    v-for="(tool, tool_idx) in mcp_tool_provider.tools"
+                    :key="tool.name"
+                    :class="`flex items-center justify-between px-2 h-8 rounded-lg cursor-pointer hover:bg-gray-50 group ${isToolSelected(mcp_tool_provider, tool) ? 'bg-blue-50 border border-blue-700' : ''}`"
+                  >
+                    <!-- 工具信息 -->
+                    <div class="flex items-center gap-2">
+                      <a-avatar
+                        :size="20"
+                        shape="circle"
+                        class="bg-gray-900 text-[9px] flex-shrink-0"
+                      >
+                        MCP
+                      </a-avatar>
+                      <div class="text-gray-900">{{ tool.name }}</div>
+                    </div>
+                    <!-- 添加按钮 -->
+                    <a-button
+                      size="mini"
+                      class="hidden group-hover:block rounded px-1.5 flex-shrink-0"
+                      @click="() => handleSelectTool(Number(mcp_tool_provider_idx), tool_idx)"
+                    >
+                      <template #icon>
+                        <icon-plus />
+                      </template>
+                      {{ isToolSelected(mcp_tool_provider, tool) ? '删除' : '添加' }}
+                    </a-button>
+                  </div>
+                </div>
+              </div>
+              <div v-if="mcp_tool_providers.length === 0" class="">
+                <a-empty
+                  description="没有可用的MCP插件"
+                  class="h-[400px] flex flex-col items-center justify-center"
+                />
+              </div>
+              <!-- 加载器 -->
+              <a-row v-if="mcpPaginator.total_page >= 2">
+                <!-- 加载数据中 -->
+                <a-col
+                  v-if="mcpPaginator.current_page <= mcpPaginator.total_page"
                   :span="24"
                   class="!text-center"
                 >

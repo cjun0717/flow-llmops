@@ -7,11 +7,12 @@ export const useUploadImage = () => {
   const image_url = ref<string>('')
 
   // 2.定义上传图片处理器
-  const handleUploadImage = async (image: File) => {
+  const handleUploadImage = async (image: File): Promise<string> => {
     try {
       loading.value = true
       const resp = await uploadImage(image)
       image_url.value = resp.data.image_url
+      return image_url.value
     } finally {
       loading.value = false
     }

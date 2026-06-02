@@ -112,9 +112,9 @@ watch(
                   const uploadTask = async () => {
                     // 1.提取数据并发起请求获取响应内容
                     const { fileItem, onSuccess } = option
-                    await handleUploadImage(fileItem.file as File)
-                    accountForm.avatar = image_url
-                    onSuccess(image_url)
+                    const uploadedImageUrl = await handleUploadImage(fileItem.file as File)
+                    accountForm.avatar = uploadedImageUrl
+                    onSuccess(uploadedImageUrl)
 
                     // 2.更新账号头像
                     await handleUpdateAvatar(String(accountForm.avatar))

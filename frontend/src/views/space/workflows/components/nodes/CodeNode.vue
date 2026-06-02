@@ -1,8 +1,13 @@
 <script setup lang="ts">
 import { Handle, type NodeProps, Position } from '@vue-flow/core'
+import { computed } from 'vue'
+import { useWorkflowDebugResults } from '../../hooks/use-workflow-debug-results'
+import WorkflowNodeDebugResult from './WorkflowNodeDebugResult.vue'
 
 // 1.定义自定义组件所需数据
 const props = defineProps<NodeProps>()
+const { nodeDebugResults } = useWorkflowDebugResults()
+const debugResult = computed(() => nodeDebugResults.value[props.id])
 </script>
 
 <template>
@@ -82,6 +87,7 @@ const props = defineProps<NodeProps>()
         </div>
       </div>
     </div>
+    <workflow-node-debug-result :result="debugResult" />
     <!-- 代码节点-连接句柄 -->
     <handle
       type="source"
