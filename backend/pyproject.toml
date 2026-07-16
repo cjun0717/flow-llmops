@@ -1,31 +1,7 @@
 [project]
 name = "backend"
 version = "0.1.0"
-description = ""
-authors = [
-    {name = "chenjun",email = "cjun0717@gmail.com"}
-]
+description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.11,<4.0.0"
-dependencies = [
-    "fastapi>=0.115.0",
-    "uvicorn[standard]>=0.32.0",
-    "sqlmodel>=0.0.22",
-    "sqlalchemy[asyncio]>=2.0.36",
-    "asyncpg>=0.30.0",
-    "pydantic>=2.10.0",
-    "pydantic-settings>=2.6.0",
-    "python-multipart>=0.0.17",
-    "python-jose[cryptography]>=3.3.0",
-    "passlib[bcrypt]>=1.7.4",
-    "alembic>=1.14.0",
-    "redis>=5.2.0",
-    "httpx>=0.28.0",
-]
-
-[tool.poetry]
-packages = [{include = "backend", from = "src"}]
-
-[build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
+requires-python = ">=3.12"
+dependencies = []
