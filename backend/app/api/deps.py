@@ -12,7 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.deps import get_db
-from app.exceptions import UnauthorizedError
+from app.exceptions import UnauthorizedException
 from app.models.account import Account
 from app.utils.jwt import parse_access_token
 
@@ -28,20 +28,20 @@ async def get_current_account(
     对齐 imooc：JWT payload.sub = account_id。
     """
     if credentials is None or credentials.scheme.lower() != "bearer":
-        raise UnauthorizedError("该接口需要授权才能访问，请登录后尝试")
+        raise UnauthorizedException("该接口需要授权才能访问，请登录后尝试")
 
     payload = parse_access_token(credentials.credentials)
     account_id = payload.get("sub")
     if not account_id:
-        raise UnauthorizedError("解析token出错，请重新登陆")
+        raise UnauthorizedException("解析token出错，请重新登陆")
 
     try:
         account_uuid = uuid.UUID(str(account_id))
     except ValueError as e:
-        raise UnauthorizedError("解析token出错，请重新登陆") from e
+        raise UnauthorizedException("解析token出错，请重新登陆") from e
 
     result = await db.execute(select(Account).where(Account.id == account_uuid))
     account = result.scalar_one_or_none()
     if account is None:
-        raise UnauthorizedError("当前账户不存在，请重新登录")
+        raise UnauthorizedException("当前账户不存在，请重新登录")
     return account

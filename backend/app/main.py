@@ -75,6 +75,6 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=settings.APP_PORT,
         reload=settings.APP_RELOAD,
-        # workers=settings.APP_WORKERS,
+        workers=settings.APP_WORKERS,
         factory=True,
     )

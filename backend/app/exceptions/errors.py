@@ -21,35 +21,35 @@ class AppException(Exception):
         super().__init__(self.message)
 
 
-class FailError(AppException):
+class FailException(AppException):
     """通用失败"""
 
     code = HttpCode.FAIL
     message = "操作失败"
 
 
-class NotFoundError(AppException):
+class NotFoundException(AppException):
     """资源不存在"""
 
     code = HttpCode.NOT_FOUND
     message = "资源不存在"
 
 
-class UnauthorizedError(AppException):
+class UnauthorizedException(AppException):
     """未授权"""
 
     code = HttpCode.UNAUTHORIZED
     message = "未授权"
 
 
-class ForbiddenError(AppException):
+class ForbiddenException(AppException):
     """无权限"""
 
     code = HttpCode.FORBIDDEN
     message = "无权限"
 
 
-class ValidateError(AppException):
+class ValidateException(AppException):
     """数据验证失败"""
 
     code = HttpCode.VALIDATE_ERROR

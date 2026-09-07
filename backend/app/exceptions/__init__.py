@@ -2,20 +2,20 @@
 # -*- coding: utf-8 -*-
 from .errors import (
     AppException,
-    FailError,
-    ForbiddenError,
-    NotFoundError,
-    UnauthorizedError,
-    ValidateError,
+    FailException,
+    ForbiddenException,
+    NotFoundException,
+    UnauthorizedException,
+    ValidateException,
 )
 from .handlers import register_exception_handlers
 
 __all__ = [
     "AppException",
-    "FailError",
-    "ForbiddenError",
-    "NotFoundError",
-    "UnauthorizedError",
-    "ValidateError",
+    "FailException",
+    "ForbiddenException",
+    "NotFoundException",
+    "UnauthorizedException",
+    "ValidateException",
     "register_exception_handlers",
 ]

@@ -10,7 +10,7 @@ from uuid import UUID
 import jwt
 
 from app.config import settings
-from app.exceptions import UnauthorizedError
+from app.exceptions import UnauthorizedException
 
 ALGORITHM = settings.ALGORITHM
 ISS = "llmops"
@@ -39,7 +39,7 @@ def create_access_token(
 
 
 def parse_access_token(token: str) -> dict[str, Any]:
-    """解析并校验 access_token，失败抛 UnauthorizedError。"""
+    """解析并校验 access_token，失败抛 UnauthorizedException。"""
     try:
         return jwt.decode(
             token,
@@ -48,6 +48,6 @@ def parse_access_token(token: str) -> dict[str, Any]:
             issuer=ISS,
         )
     except jwt.ExpiredSignatureError as e:
-        raise UnauthorizedError("授权认证凭证已过期请重新登陆") from e
+        raise UnauthorizedException("授权认证凭证已过期请重新登陆") from e
     except jwt.InvalidTokenError as e:
-        raise UnauthorizedError("解析token出错，请重新登陆") from e
+        raise UnauthorizedException("解析token出错，请重新登陆") from e

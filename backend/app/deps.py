@@ -4,7 +4,8 @@
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
-
+from typing import Annotated
+from fastapi import Depends
 from minio import Minio
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -59,3 +60,10 @@ async def get_minio_client() -> Minio:
             secure=False,
         )
     return _minio_client
+
+
+# 数据库
+AsyncSessionDep = Annotated[AsyncSession, Depends(get_db)]
+
+# redis
+RedisDep = Annotated[Redis, Depends(get_redis)]
