@@ -1,15 +1,8 @@
 from pathlib import Path
-from typing import Annotated, Any, Literal
 
 from pydantic import (
-    AnyUrl,
-    BeforeValidator,
-    EmailStr,
-    HttpUrl,
     PostgresDsn,
-    RedisDsn,
     computed_field,
-    model_validator,
 )
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -78,12 +71,22 @@ class Settings(BaseSettings):
     MINIO_PORT: int
     MINIO_ROOT_USER: str
     MINIO_ROOT_PASSWORD: str
+    MINIO_BUCKET: str = "llmops"
+    MINIO_DOMAIN: str = ""
 
     @computed_field
     @property
     def MINIO_ENDPOINT(self) -> str:
         return f"{self.MINIO_HOST}:{self.MINIO_PORT}"
-    
+
+    @computed_field
+    @property
+    def MINIO_BASE_URL(self) -> str:
+        """MinIO 文件访问基址，用于拼接 image_url"""
+        if self.MINIO_DOMAIN:
+            return self.MINIO_DOMAIN.rstrip("/")
+        return f"http://{self.MINIO_ENDPOINT}"
+
     ### celery 配置###
     BROKER_DB: int = 1
     RESULT_DB: int = 2

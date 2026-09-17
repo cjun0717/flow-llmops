@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""基础设施组件依赖：DB / Redis / MinIO。"""
+"""基础设施组件依赖：DB / Redis / MinIO / LanguageModelManager。"""
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
+from functools import lru_cache
 from typing import Annotated
 from fastapi import Depends
 from minio import Minio
@@ -11,7 +12,9 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.core.language_model import LanguageModelManager
 from app.db import AsyncSessionLocal
+from app.services.language_model_service import LanguageModelService
 
 _redis_client: Redis | None = None
 _minio_client: Minio | None = None
@@ -67,3 +70,23 @@ AsyncSessionDep = Annotated[AsyncSession, Depends(get_db)]
 
 # redis
 RedisDep = Annotated[Redis, Depends(get_redis)]
+
+# minio
+MinioDep = Annotated[Minio, Depends(get_minio_client)]
+
+
+@lru_cache
+def get_language_model_manager() -> LanguageModelManager:
+    """获取语言模型管理器（进程内单例，构造时读 yaml）"""
+    return LanguageModelManager()
+
+
+def get_language_model_service(
+    manager: LanguageModelManager = Depends(get_language_model_manager),
+) -> LanguageModelService:
+    """获取语言模型服务"""
+    return LanguageModelService(manager)
+
+
+# 语言模型
+LanguageModelServiceDep = Annotated[LanguageModelService, Depends(get_language_model_service)]

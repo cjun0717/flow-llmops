@@ -45,3 +45,6 @@ async def get_current_account(
     if account is None:
         raise UnauthorizedException("当前账户不存在，请重新登录")
     return account
+
+
+CurrentAccount = Annotated[Account, Depends(get_current_account)]

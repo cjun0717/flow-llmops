@@ -52,8 +52,8 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.APP_NAME,
         version=settings.APP_VERSION,
+        openapi_url=f"{settings.API_V1_STR}/openapi.json",
         description=f"{settings.APP_NAME}接口文档",
-        root_path=settings.API_V1_STR,
         lifespan=lifespan,
     )
 
@@ -61,8 +61,8 @@ def create_app() -> FastAPI:
     register_exception_handlers(app)
     # 注册中间件
     register_middlewares(app)
-    # 注册API路由
-    app.include_router(api_router)
+    # 注册API路由（实际路径前缀 /api/v1）
+    app.include_router(api_router, prefix=settings.API_V1_STR)
 
     return app
 

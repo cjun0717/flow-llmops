@@ -4,7 +4,7 @@ import uuid
 from typing import Optional
 from datetime import datetime
 from decimal import Decimal
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy import String, Text, Integer, Boolean, Numeric, Float, text, PrimaryKeyConstraint, Index, Uuid
 from sqlalchemy.dialects.postgresql import JSONB
 from .base_model import BaseModel
@@ -195,16 +195,6 @@ class Message(BaseModel):
         nullable=False,
         server_default=text("0.0"),
         comment="消耗的总价格，计算步骤的总消耗"
-    )
-
-    agent_thoughts = relationship(
-        "MessageAgentThought",
-        backref="msg",
-        lazy="selectin",
-        passive_deletes="all",
-        uselist=True,
-        foreign_keys=[id],
-        primaryjoin="MessageAgentThought.message_id == Message.id",
     )
 
 
