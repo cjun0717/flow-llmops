@@ -100,4 +100,17 @@ class Settings(BaseSettings):
     def CELERY_RESULT_URL(self) -> str:
         return f"redis://:{self.REDIS_AUTH}@{self.REDIS_HOST}:{self.REDIS_PORT}/{self.RESULT_DB}"
 
+    ### milvus 配置 ###
+    MILVUS_HOST: str = "localhost"
+    MILVUS_PORT: int = 19530
+    MILVUS_USER: str = ""
+    MILVUS_PASSWORD: str = ""
+    MILVUS_COLLECTION_NAME: str = "Dataset"
+
+    ### openai embedding 配置（知识库向量化）###
+    OPENAI_EMBEDDING_API_KEY: str = ""
+    OPENAI_EMBEDDING_BASE_URL: str = "https://api.openai.com/v1"
+    OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-large"
+    EMBEDDING_DIMENSION: int = 3072
+
 settings = Settings()

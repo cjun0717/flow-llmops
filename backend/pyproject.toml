@@ -6,19 +6,26 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "asyncpg>=0.31.0",
+    "celery>=5.6.3",
     "fastapi>=0.139.2",
+    "jieba>=0.42.1",
     "langchain-community>=0.4.2",
     "langchain-core>=1.6.3",
     "langchain-deepseek>=1.1.0",
+    "langchain-milvus>=0.4.0",
     "langchain-ollama>=1.1.0",
     "langchain-openai>=1.6.2",
     "minio>=7.2.20",
+    "psycopg2-binary>=2.9.13",
     "pydantic>=2.13.4",
     "pydantic-settings>=2.14.2",
     "pyjwt>=2.13.0",
+    "pymilvus>=3.0.2",
     "python-multipart>=0.0.20",
     "redis>=8.0.1",
     "sqlalchemy>=2.0.51",
+    "tiktoken>=0.14.0",
+    "unstructured>=0.27.6",
     "uvicorn>=0.51.0",
 ]
 
