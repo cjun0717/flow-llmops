@@ -1,4 +1,5 @@
 from pathlib import Path
+from uuid import UUID
 
 from pydantic import (
     PostgresDsn,
@@ -106,11 +107,23 @@ class Settings(BaseSettings):
     MILVUS_USER: str = ""
     MILVUS_PASSWORD: str = ""
     MILVUS_COLLECTION_NAME: str = "Dataset"
+    MILVUS_ASSISTANT_COLLECTION_NAME: str = "AssistantAgent"
+
+    ### openai 配置（Whisper STT / TTS / Chat）###
+    OPENAI_API_KEY: str = ""
+    OPENAI_API_BASE: str = ""
 
     ### openai embedding 配置（知识库向量化）###
     OPENAI_EMBEDDING_API_KEY: str = ""
     OPENAI_EMBEDDING_BASE_URL: str = "https://api.openai.com/v1"
     OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-large"
     EMBEDDING_DIMENSION: int = 3072
+
+    ### 辅助 Agent 配置 ###
+    ASSISTANT_AGENT_ID: UUID = UUID("e0fcb35b-c1c0-47f7-b313-bae128911ce8")
+    ASSISTANT_AGENT_MODEL_PROVIDER: str = "openai"
+    ASSISTANT_AGENT_MODEL: str = "gpt-4o-mini"
+    ASSISTANT_AGENT_TEMPERATURE: float = 0.8
+    ASSISTANT_AGENT_MAX_TOKENS: int = 1024
 
 settings = Settings()

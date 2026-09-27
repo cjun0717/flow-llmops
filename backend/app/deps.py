@@ -31,6 +31,8 @@ from app.core.tools.api_tools.providers import ApiProviderManager
 from app.core.tools.builtin_tools.categories import BuiltinCategoryManager
 from app.core.tools.builtin_tools.providers import BuiltinProviderManager
 from app.core.tools.mcp_tools.providers import McpProviderManager
+from app.core.builtin_apps import BuiltinAppManager
+from app.services.assistant_knowledge_service import AssistantKnowledgeService
 
 _redis_client: Redis | None = None
 _minio_client: Minio | None = None
@@ -255,3 +257,29 @@ def get_app_config_service(
 
 
 AppConfigServiceDep = Annotated[AppConfigService, Depends(get_app_config_service)]
+
+
+# ===== 阶段11 应用广场 =====
+
+
+@lru_cache
+def get_builtin_app_manager() -> BuiltinAppManager:
+    """获取内置应用管理器（进程内单例，构造时读 yaml）"""
+    return BuiltinAppManager()
+
+
+BuiltinAppManagerDep = Annotated[BuiltinAppManager, Depends(get_builtin_app_manager)]
+
+
+# ===== 阶段11.3 辅助 Agent =====
+
+
+@lru_cache
+def get_assistant_knowledge_service() -> AssistantKnowledgeService:
+    """获取辅助 Agent 知识检索服务（Milvus collection，进程内单例）"""
+    return AssistantKnowledgeService(get_milvus_client(), get_embeddings_service())
+
+
+AssistantKnowledgeServiceDep = Annotated[
+    AssistantKnowledgeService, Depends(get_assistant_knowledge_service)
+]

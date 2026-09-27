@@ -2,8 +2,12 @@ from fastapi import APIRouter
 
 from app.api.routes import (
     account,
+    ai,
+    analysis,
     api_tools,
     apps,
+    assistant_agent,
+    audio,
     auth,
     builtin_tools,
     conversations,
@@ -16,6 +20,8 @@ from app.api.routes import (
     segments,
     upload_file,
     workflows,
+    builtin_apps,
+    web_apps,
 )
 
 api_router = APIRouter()
@@ -34,3 +40,9 @@ api_router.include_router(mcp_tools.router)
 api_router.include_router(conversations.router)
 api_router.include_router(workflows.router)
 api_router.include_router(openapi.router)
+api_router.include_router(ai.router)
+api_router.include_router(builtin_apps.router)
+api_router.include_router(assistant_agent.router)
+api_router.include_router(analysis.router)
+api_router.include_router(web_apps.router)
+api_router.include_router(audio.router)

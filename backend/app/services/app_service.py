@@ -17,7 +17,12 @@ from app.core.agent.entities.queue_entity import QueueEvent, queue_event_name
 from app.core.agent.agents import FunctionCallAgent, ReACTAgent
 from app.core.language_model.entities.model_entity import ModelFeature
 from app.core.memory import TokenBufferMemory
-from app.entities.app_entity import AppStatus, AppConfigType, DEFAULT_APP_CONFIG
+from app.entities.app_entity import (
+    AppStatus,
+    AppConfigType,
+    DEFAULT_APP_CONFIG,
+    GENERATE_ICON_PROMPT_TEMPLATE,
+)
 from app.entities.conversation_entity import InvokeFrom, MessageStatus
 from app.entities.dataset_entity import RetrievalSource
 from app.exceptions import FailException, ForbiddenException, NotFoundException
@@ -742,3 +747,103 @@ class AppService:
             page_size=req.page_size,
             total_record=total_record,
         )
+
+    @staticmethod
+    def auto_create_app(name: str, description: str, account_id: UUID) -> None:
+        """根据名称、描述、账号id利用 AI 创建一个 Agent（Celery 同步任务）。"""
+        import hashlib
+        import io
+        import uuid as uuid_lib
+        from datetime import datetime
+
+        import requests
+        from langchain_community.utilities.dalle_image_generator import DallEAPIWrapper
+        from langchain_core.output_parsers import StrOutputParser
+        from langchain_core.prompts import ChatPromptTemplate
+        from langchain_core.runnables import RunnableParallel
+        from langchain_openai import ChatOpenAI
+        from minio import Minio
+
+        from app.config import settings
+        from app.db import SyncSessionLocal
+        from app.entities.ai_entity import OPTIMIZE_PROMPT_TEMPLATE
+        from app.models.upload_file import UploadFile
+
+        llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.8)
+        dalle_api_wrapper = DallEAPIWrapper(model="dall-e-3", size="1024x1024")
+        generate_icon_chain = (
+            ChatPromptTemplate.from_template(GENERATE_ICON_PROMPT_TEMPLATE)
+            | llm
+            | StrOutputParser()
+            | dalle_api_wrapper.run
+        )
+        generate_preset_prompt_chain = ChatPromptTemplate.from_messages([
+            ("system", OPTIMIZE_PROMPT_TEMPLATE),
+            ("human", "应用名称: {name}\n\n应用描述: {description}"),
+        ]) | llm | StrOutputParser()
+        generate_app_config_chain = RunnableParallel({
+            "icon": generate_icon_chain,
+            "preset_prompt": generate_preset_prompt_chain,
+        })
+        app_config = generate_app_config_chain.invoke({"name": name, "description": description})
+
+        icon_response = requests.get(app_config.get("icon"), timeout=60)
+        if icon_response.status_code != 200:
+            raise FailException("生成应用icon图标出错")
+        icon_content = icon_response.content
+
+        now = datetime.now()
+        object_key = f"{now.year}/{now.month:02d}/{now.day:02d}/{uuid_lib.uuid4()}.png"
+        minio_client = Minio(
+            endpoint=settings.MINIO_ENDPOINT,
+            access_key=settings.MINIO_ROOT_USER,
+            secret_key=settings.MINIO_ROOT_PASSWORD,
+            secure=False,
+        )
+        bucket = settings.MINIO_BUCKET
+        if not minio_client.bucket_exists(bucket):
+            minio_client.make_bucket(bucket)
+        minio_client.put_object(
+            bucket_name=bucket,
+            object_name=object_key,
+            data=io.BytesIO(icon_content),
+            length=len(icon_content),
+            content_type="image/png",
+        )
+        icon = f"{settings.MINIO_BASE_URL}/{bucket}/{object_key}"
+
+        with SyncSessionLocal() as db:
+            account = db.get(Account, account_id)
+            if account is None:
+                return
+            db.add(UploadFile(
+                account_id=account.id,
+                name="icon.png",
+                key=object_key,
+                size=len(icon_content),
+                extension="png",
+                mime_type="image/png",
+                hash=hashlib.sha3_256(icon_content).hexdigest(),
+            ))
+            app = App(
+                account_id=account.id,
+                name=name,
+                icon=icon,
+                description=description,
+                status=AppStatus.DRAFT,
+            )
+            db.add(app)
+            db.flush()
+            app_config_version = AppConfigVersion(
+                app_id=app.id,
+                version=0,
+                config_type=AppConfigType.DRAFT,
+                **{
+                    **DEFAULT_APP_CONFIG,
+                    "preset_prompt": app_config.get("preset_prompt", ""),
+                },
+            )
+            db.add(app_config_version)
+            db.flush()
+            app.draft_app_config_id = app_config_version.id
+            db.commit()
