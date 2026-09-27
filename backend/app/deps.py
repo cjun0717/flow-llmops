@@ -23,6 +23,14 @@ from app.services.language_model_service import LanguageModelService
 from app.services.retrieval_service import RetrievalService
 from app.services.segment_service import SegmentService
 from app.services.vector_database_service import VectorDatabaseService
+from app.services.api_tool_service import ApiToolService
+from app.services.app_config_service import AppConfigService
+from app.services.builtin_tool_service import BuiltinToolService
+from app.services.mcp_tool_service import McpToolService
+from app.core.tools.api_tools.providers import ApiProviderManager
+from app.core.tools.builtin_tools.categories import BuiltinCategoryManager
+from app.core.tools.builtin_tools.providers import BuiltinProviderManager
+from app.core.tools.mcp_tools.providers import McpProviderManager
 
 _redis_client: Redis | None = None
 _minio_client: Minio | None = None
@@ -115,6 +123,10 @@ def get_sync_redis() -> SyncRedis:
     return _sync_redis_client
 
 
+# 同步 redis（供 Agent 队列管理器在子线程中使用）
+SyncRedisDep = Annotated[SyncRedis, Depends(get_sync_redis)]
+
+
 @lru_cache
 def get_milvus_client() -> MilvusClient:
     """获取 Milvus 客户端（进程内单例）"""
@@ -167,3 +179,79 @@ def get_retrieval_service(
 
 
 RetrievalServiceDep = Annotated[RetrievalService, Depends(get_retrieval_service)]
+
+
+# ===== 阶段6 插件相关依赖 =====
+
+
+@lru_cache
+def get_builtin_provider_manager() -> BuiltinProviderManager:
+    """获取内置工具提供商管理器（进程内单例）"""
+    return BuiltinProviderManager()
+
+
+@lru_cache
+def get_builtin_category_manager() -> BuiltinCategoryManager:
+    """获取内置工具分类管理器（进程内单例）"""
+    return BuiltinCategoryManager()
+
+
+@lru_cache
+def get_api_provider_manager() -> ApiProviderManager:
+    """获取 API 工具提供者管理器（进程内单例）"""
+    return ApiProviderManager()
+
+
+@lru_cache
+def get_mcp_provider_manager() -> McpProviderManager:
+    """获取 MCP 工具提供者管理器（进程内单例）"""
+    return McpProviderManager()
+
+
+def get_builtin_tool_service(
+    builtin_provider_manager: BuiltinProviderManager = Depends(get_builtin_provider_manager),
+    builtin_category_manager: BuiltinCategoryManager = Depends(get_builtin_category_manager),
+) -> BuiltinToolService:
+    """获取内置工具服务"""
+    return BuiltinToolService(builtin_provider_manager, builtin_category_manager)
+
+
+BuiltinToolServiceDep = Annotated[BuiltinToolService, Depends(get_builtin_tool_service)]
+
+
+def get_api_tool_service(
+    api_provider_manager: ApiProviderManager = Depends(get_api_provider_manager),
+) -> ApiToolService:
+    """获取 API 工具服务"""
+    return ApiToolService()
+
+
+ApiToolServiceDep = Annotated[ApiToolService, Depends(get_api_tool_service)]
+
+
+def get_mcp_tool_service(
+    mcp_provider_manager: McpProviderManager = Depends(get_mcp_provider_manager),
+) -> McpToolService:
+    """获取 MCP 工具服务"""
+    return McpToolService(mcp_provider_manager)
+
+
+McpToolServiceDep = Annotated[McpToolService, Depends(get_mcp_tool_service)]
+
+
+def get_app_config_service(
+    api_provider_manager: ApiProviderManager = Depends(get_api_provider_manager),
+    mcp_provider_manager: McpProviderManager = Depends(get_mcp_provider_manager),
+    builtin_provider_manager: BuiltinProviderManager = Depends(get_builtin_provider_manager),
+    language_model_manager: LanguageModelManager = Depends(get_language_model_manager),
+) -> AppConfigService:
+    """获取应用配置服务"""
+    return AppConfigService(
+        api_provider_manager,
+        mcp_provider_manager,
+        builtin_provider_manager,
+        language_model_manager,
+    )
+
+
+AppConfigServiceDep = Annotated[AppConfigService, Depends(get_app_config_service)]

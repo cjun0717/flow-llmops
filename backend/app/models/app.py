@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 import uuid
 from typing import Optional
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import String, Text, Integer, text, PrimaryKeyConstraint, Index, Uuid
 from sqlalchemy.dialects.postgresql import JSONB
 from .base_model import BaseModel
@@ -66,6 +66,14 @@ class App(BaseModel):
         nullable=False,
         server_default=text("''::character varying"),
         comment="应用状态"
+    )
+
+    debug_conversation: Mapped[Optional["Conversation"]] = relationship(
+        "Conversation",
+        foreign_keys="App.debug_conversation_id",
+        primaryjoin="App.debug_conversation_id == Conversation.id",
+        lazy="selectin",
+        uselist=False,
     )
 
 

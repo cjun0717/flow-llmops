@@ -21,6 +21,16 @@ def dynamic_import(module_name: str, symbol_name: str) -> Any:
     return getattr(module, symbol_name)
 
 
+def add_attribute(key: str, value: Any) -> Any:
+    """类装饰器：为被装饰函数附加额外属性（用于 builtin tool 工厂函数）"""
+
+    def decorator(func):
+        setattr(func, key, value)
+        return func
+
+    return decorator
+
+
 def generate_text_hash(text: str) -> str:
     """根据传递的文本计算对应的哈希值"""
     text = str(text) + "None"
@@ -32,6 +42,11 @@ def datetime_to_timestamp(dt: datetime | None) -> int:
     if dt is None:
         return 0
     return int(dt.timestamp())
+
+
+def combine_documents(documents: list) -> str:
+    """将对应的文档列表使用换行符进行合并"""
+    return "\n\n".join([document.page_content for document in documents])
 
 
 def remove_fields(data_dict: dict, fields: list[str]) -> None:

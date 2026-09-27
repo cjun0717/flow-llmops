@@ -48,3 +48,31 @@ async def get_current_account(
 
 
 CurrentAccount = Annotated[Account, Depends(get_current_account)]
+
+
+async def get_current_api_account(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> Account:
+    """
+    解析 Authorization: Bearer <api_key>，根据 ApiKey 凭证返回归属账号。
+    对齐 imooc openapi 蓝图：使用 ApiKey 鉴权（非 JWT）。
+    """
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        raise UnauthorizedException("该接口需要授权才能访问，请登录后尝试")
+
+    api_key = credentials.credentials
+    from app.services.api_key_service import ApiKeyService
+
+    api_key_record = await ApiKeyService.get_api_key_by_credential(api_key, db)
+    if not api_key_record or not api_key_record.is_active:
+        raise UnauthorizedException("该秘钥不存在或未激活")
+
+    result = await db.execute(select(Account).where(Account.id == api_key_record.account_id))
+    account = result.scalar_one_or_none()
+    if account is None:
+        raise UnauthorizedException("当前账户不存在，请重新登录")
+    return account
+
+
+CurrentApiAccount = Annotated[Account, Depends(get_current_api_account)]

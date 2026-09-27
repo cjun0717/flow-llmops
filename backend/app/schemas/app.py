@@ -6,7 +6,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.app import App, AppConfigVersion
 from app.schemas.response import PageParams
@@ -97,3 +97,51 @@ class AppDetailData(BaseModel):
 class CreateAppData(BaseModel):
     """创建/复制应用响应"""
     id: UUID
+class GetPublishHistoriesWithPageReq(PageParams):
+    """获取应用发布历史配置分页列表请求"""
+    pass
+
+
+class FallbackHistoryToDraftReq(BaseModel):
+    """回退历史版本到草稿请求"""
+    app_config_version_id: UUID = Field(..., description="回退配置版本id")
+
+
+class UpdateDraftAppConfigReq(BaseModel):
+    """更新应用草稿配置请求（字段均为可选，至少传一个）"""
+    model_config = ConfigDict(populate_by_name=True)
+
+    model_config_: dict | None = Field(default=None, alias="model_config", description="模型配置")
+    dialog_round: int | None = Field(default=None, ge=0, le=100, description="携带上下文轮数")
+    preset_prompt: str | None = Field(default=None, max_length=2000, description="人设与回复逻辑")
+    tools: list[dict] | None = Field(default=None, description="工具列表")
+    workflows: list[str] | None = Field(default=None, description="工作流id列表")
+    datasets: list[str] | None = Field(default=None, description="知识库id列表")
+    retrieval_config: dict | None = Field(default=None, description="检索配置")
+    long_term_memory: dict | None = Field(default=None, description="长期记忆配置")
+    opening_statement: str | None = Field(default=None, max_length=2000, description="开场白")
+    opening_questions: list[str] | None = Field(default=None, description="开场建议问题")
+    speech_to_text: dict | None = Field(default=None, description="语音转文本")
+    text_to_speech: dict | None = Field(default=None, description="文本转语音")
+    suggested_after_answer: dict | None = Field(default=None, description="回答后建议问题")
+    review_config: dict | None = Field(default=None, description="审核配置")
+
+
+class PublishHistoryItem(BaseModel):
+    """发布历史列表项"""
+    id: UUID
+    version: int
+    created_at: int
+
+    @classmethod
+    def from_model(cls, v: AppConfigVersion) -> "PublishHistoryItem":
+        return cls(
+            id=v.id,
+            version=v.version,
+            created_at=_datetime_to_timestamp(v.created_at),
+        )
+
+
+class PublishedConfigData(BaseModel):
+    """已发布 WebApp 配置"""
+    web_app: dict

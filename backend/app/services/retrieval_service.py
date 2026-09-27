@@ -7,16 +7,21 @@
 """
 from __future__ import annotations
 
+import asyncio
 from collections import Counter
 from uuid import UUID
 
 from langchain_core.documents import Document as LCDocument
+from langchain_core.tools import BaseTool, tool
+from pydantic import BaseModel, Field
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
 
+from app.core.agent.entities.agent_entity import DATASET_RETRIEVAL_TOOL_NAME
 from app.entities.dataset_entity import RetrievalSource, RetrievalStrategy
 from app.exceptions import NotFoundException
+from app.lib.helper import combine_documents
 from app.models.dataset import Dataset, DatasetQuery, KeywordTable, Segment
 from app.services.jieba_service import JiebaService
 from app.services.vector_database_service import VectorDatabaseService
@@ -224,3 +229,55 @@ class RetrievalService:
             new_meta["score"] = combined_score
             lc_documents.append(LCDocument(page_content=doc.page_content, metadata=new_meta))
         return lc_documents
+
+    def create_langchain_tool_from_search(
+        self,
+        dataset_ids: list[UUID],
+        account_id: UUID,
+        retrieval_strategy: str = RetrievalStrategy.SEMANTIC,
+        k: int = 4,
+        score: float = 0,
+        retrival_source: str = RetrievalSource.APP,
+    ) -> BaseTool:
+        """根据传递的参数构建一个 LangChain 知识库搜索工具。
+
+        工具在 Agent 的子线程中同步调用，内部用 asyncio.run + 全新 AsyncSession
+        执行异步检索（子线程无运行中事件循环，可安全创建新循环）。
+        """
+
+        class DatasetRetrievalInput(BaseModel):
+            """知识库检索工具输入结构"""
+            query: str = Field(description="知识库搜索query语句，类型为字符串")
+
+        @tool(DATASET_RETRIEVAL_TOOL_NAME, args_schema=DatasetRetrievalInput)
+        def dataset_retrieval(query: str) -> str:
+            """如果需要搜索扩展的知识库内容，当你觉得用户的提问超过你的知识范围时，可以尝试调用该工具，输入为搜索query语句，返回数据为检索内容字符串"""
+            # 延迟导入避免循环依赖
+            from app.db import AsyncSessionLocal
+
+            async def _do_search() -> list[LCDocument]:
+                async with AsyncSessionLocal() as inner_db:
+                    return await self.search_in_datasets(
+                        dataset_ids=dataset_ids,
+                        query=query,
+                        account_id=account_id,
+                        db=inner_db,
+                        retrieval_strategy=retrieval_strategy,
+                        k=k,
+                        score=score,
+                        retrieval_source=retrival_source,
+                    )
+
+            # 子线程中无运行事件循环，安全创建
+            try:
+                documents = asyncio.run(_do_search())
+            except RuntimeError:
+                # 若已在事件循环线程中调用，则用线程池兜底
+                documents = run_in_threadpool(asyncio.run, _do_search())
+
+            if len(documents) == 0:
+                return "知识库内没有检索到对应内容"
+
+            return combine_documents(documents)
+
+        return dataset_retrieval
