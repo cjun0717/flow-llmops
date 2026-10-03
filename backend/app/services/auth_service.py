@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -27,7 +27,10 @@ class AuthService:
         client_ip: str,
         db: AsyncSession,
     ) -> PasswordLoginData:
-        result = await db.execute(select(Account).where(Account.email == email))
+        ident = (email or "").strip()
+        result = await db.execute(
+            select(Account).where(or_(Account.email == ident, Account.name == ident))
+        )
         account = result.scalar_one_or_none()
         if not account:
             raise FailException("账号不存在或者密码错误，请核实后重试")

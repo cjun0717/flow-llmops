@@ -9,6 +9,8 @@ export type GetDatasetsWithPageResponse = BasePaginatorResponse<{
   document_count: number
   character_count: number
   related_app_count: number
+  embedding_model_id?: string
+  embedding_model_name?: string
   updated_at: number
   created_at: number
 }>
@@ -18,6 +20,7 @@ export type CreateDatasetRequest = {
   name: string
   icon: string
   description: string
+  embedding_model_id: string
 }
 
 // 更新知识库请求结构
@@ -37,6 +40,8 @@ export type GetDatasetResponse = BaseResponse<{
   hit_count: number
   related_app_count: number
   character_count: number
+  embedding_model_id?: string
+  embedding_model_name?: string
   updated_at: number
   created_at: number
 }>

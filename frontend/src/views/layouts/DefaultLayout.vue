@@ -7,6 +7,7 @@ import { useGetCurrentUser } from '@/hooks/use-account'
 import { useCredentialStore } from '@/stores/credential'
 import { useAccountStore } from '@/stores/account'
 import SettingModal from '@/views/layouts/components/SettingModal.vue'
+import BrandLogo from '@/components/BrandLogo.vue'
 
 // 1.定义页面所需数据
 const settingModalVisible = ref(false)
@@ -46,8 +47,10 @@ onMounted(async () => {
           <!-- 顶部Logo -->
           <router-link
             to="/home"
-            class="block h-9 w-[110px] mb-5 bg-gray-200 hover:bg-gray-300 transition-all rounded-lg"
-          />
+            class="flex items-center h-11 px-2 mb-5 rounded-lg hover:bg-gray-100 transition-all"
+          >
+            <brand-logo />
+          </router-link>
           <!-- 创建AI应用按钮 -->
           <router-link :to="{ name: 'space-apps-list', query: { create_type: 'app' } }">
             <a-button type="primary" long class="rounded-lg mb-4">

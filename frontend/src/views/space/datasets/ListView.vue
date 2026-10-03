@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import {computed, onMounted, watch} from 'vue'
-import {useRoute} from 'vue-router'
+import {useRoute, useRouter} from 'vue-router'
 import moment from 'moment'
 import type {ValidatedError} from '@arco-design/web-vue'
 import {useCreateOrUpdateDataset, useDeleteDataset, useGetDataset, useGetDatasetsWithPage,} from '@/hooks/use-dataset'
+import {useAccountStore} from '@/stores/account'
 import {useUploadImage} from '@/hooks/use-upload-file'
+import {useGetUserModels} from '@/hooks/use-user-model'
 
 // 1.定义页面所需数据
 const route = useRoute()
+const router = useRouter()
+const accountStore = useAccountStore()
 const props = defineProps({
   createType: {type: String, required: true},
 })
@@ -25,6 +29,14 @@ const {
   updateShowUpdateModal,
 } = useCreateOrUpdateDataset()
 const {handleDelete} = useDeleteDataset()
+const {user_models: embeddingModels, loadUserModels: loadEmbeddingModels} = useGetUserModels()
+const isCreate = computed(() => props.createType === 'dataset')
+const embeddingOptions = computed(() =>
+  embeddingModels.value.map((item) => ({
+    label: item.is_default ? `${item.name}（默认）` : `${item.name} · ${item.dimension || '-'} 维`,
+    value: item.id,
+  })),
+)
 const search_word = computed(() => {
   return String(route.query?.search_word ?? '')
 })
@@ -54,6 +66,8 @@ const handleUpdate = (dataset_id: string) => {
     form.value.icon = dataset.value.icon
     form.value.name = dataset.value.name
     form.value.description = dataset.value.description
+    form.value.embedding_model_id = dataset.value.embedding_model_id || ''
+    form.value.embedding_model_name = dataset.value.embedding_model_name || ''
   })
 }
 
@@ -89,8 +103,19 @@ watch(
 )
 
 // 7.页面DOM加载后加载数据
+watch(
+    () => props.createType,
+    (newValue) => {
+      if (newValue === 'dataset') {
+        const def = embeddingModels.value.find((item) => item.is_default) || embeddingModels.value[0]
+        if (def) form.value.embedding_model_id = def.id
+      }
+    },
+)
+
 onMounted(() => {
   loadDatasets(true, search_word.value)
+  loadEmbeddingModels('embedding')
 })
 </script>
 
@@ -104,7 +129,16 @@ onMounted(() => {
     <a-row :gutter="[20, 20]" class="flex-1">
       <!-- 有数据的UI状态 -->
       <a-col v-for="dataset in datasets" :key="dataset.id" :span="6">
-        <a-card hoverable class="cursor-pointer rounded-lg">
+        <div
+          class="cursor-pointer"
+          @click="
+            router.push({
+              name: 'space-datasets-documents-list',
+              params: { dataset_id: dataset.id },
+            })
+          "
+        >
+        <a-card hoverable class="rounded-lg">
           <!-- 顶部知识库名称 -->
           <div class="flex items-center gap-3 mb-3">
             <!-- 左侧图标 -->
@@ -127,6 +161,7 @@ onMounted(() => {
                 </div>
               </div>
               <!-- 操作按钮 -->
+              <div @click.stop>
               <a-dropdown position="br">
                 <a-button type="text" size="small" class="rounded-lg !text-gray-700 flex-shrink-0">
                   <template #icon>
@@ -143,6 +178,7 @@ onMounted(() => {
                   </a-doption>
                 </template>
               </a-dropdown>
+              </div>
             </div>
           </div>
           <!-- 知识库的描述信息 -->
@@ -155,11 +191,12 @@ onMounted(() => {
               <icon-user/>
             </a-avatar>
             <div class="text-xs text-gray-400">
-              慕小课 · 最近编辑
+              {{ accountStore.account.name }} · 最近编辑
               {{ moment(dataset.updated_at * 1000).format('MM-DD HH:mm') }}
             </div>
           </div>
         </a-card>
+        </div>
       </a-col>
       <!-- 没数据的UI状态 -->
       <a-col v-if="datasets.length === 0" :span="24">
@@ -266,6 +303,24 @@ onMounted(() => {
                 placeholder="请输入知识库内容的描述"
             />
           </a-form-item>
+          <a-form-item
+              field="embedding_model_id"
+              label="向量模型"
+              asterisk-position="end"
+              :rules="isCreate ? [{ required: true, message: '请选择向量模型' }] : []"
+          >
+            <a-select
+                v-if="isCreate"
+                v-model="form.embedding_model_id"
+                :options="embeddingOptions"
+                placeholder="请选择向量模型，创建后不可更改"
+                allow-search
+            />
+            <a-input v-else :model-value="form.embedding_model_name || '未绑定（将使用账号默认向量模型）'" disabled />
+            <div v-if="isCreate && embeddingModels.length === 0" class="text-xs text-gray-500 mt-1">
+              请先到模型管理添加向量模型后再创建知识库
+            </div>
+          </a-form-item>
           <!-- 底部按钮 -->
           <div class="flex items-center justify-between">
             <div class=""></div>
@@ -276,6 +331,7 @@ onMounted(() => {
                   type="primary"
                   html-type="submit"
                   class="rounded-lg"
+                  :disabled="isCreate && embeddingModels.length === 0"
               >
                 保存
               </a-button>

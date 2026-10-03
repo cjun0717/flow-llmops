@@ -1,0 +1,55 @@
+export const DEFAULT_CHAT_PARAMETERS = {
+  temperature: 0.5,
+  top_p: 0.85,
+  frequency_penalty: 0.2,
+  presence_penalty: 0.2,
+  max_tokens: 8192,
+}
+
+export const CHAT_PARAMETER_TEMPLATE = [
+  {
+    name: 'temperature',
+    label: '温度',
+    type: 'float',
+    help: '温度控制随机性，较低的温度会导致较少的随机生成。',
+    min: 0,
+    max: 2,
+    default: 0.5,
+  },
+  {
+    name: 'top_p',
+    label: 'Top P',
+    type: 'float',
+    help: '通过核心采样控制多样性。',
+    min: 0,
+    max: 1,
+    default: 0.85,
+  },
+  {
+    name: 'presence_penalty',
+    label: '存在惩罚',
+    type: 'float',
+    help: '对文本中已有标记的对数概率施加惩罚。',
+    min: -2,
+    max: 2,
+    default: 0.2,
+  },
+  {
+    name: 'frequency_penalty',
+    label: '频率惩罚',
+    type: 'float',
+    help: '对文本中已有标记的对数概率施加惩罚。',
+    min: -2,
+    max: 2,
+    default: 0.2,
+  },
+  {
+    name: 'max_tokens',
+    label: '最大标记',
+    type: 'int',
+    help: '要生成的标记的最大数量。',
+    min: 1,
+    max: 16384,
+    default: 8192,
+  },
+]

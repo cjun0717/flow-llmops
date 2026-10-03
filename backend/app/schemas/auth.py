@@ -10,20 +10,22 @@ from pydantic import BaseModel, Field, field_validator
 from app.utils.password import password_pattern
 
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+_USERNAME_RE = re.compile(r"^[a-zA-Z0-9_]{3,32}$")
 
 
 class PasswordLoginReq(BaseModel):
-    """账号密码登录请求"""
+    """账号密码登录请求（email 字段同时接受用户名或邮箱）"""
 
-    email: str = Field(..., min_length=5, max_length=254, description="登录邮箱")
+    email: str = Field(..., min_length=3, max_length=254, description="用户名或登录邮箱")
     password: str = Field(..., min_length=8, max_length=16, description="登录密码")
 
     @field_validator("email")
     @classmethod
-    def check_email(cls, v: str) -> str:
-        if _EMAIL_RE.match(v) is None:
-            raise ValueError("登录邮箱格式错误")
-        return v
+    def check_login_id(cls, v: str) -> str:
+        value = v.strip()
+        if _EMAIL_RE.match(value) is None and _USERNAME_RE.match(value) is None:
+            raise ValueError("请输入用户名或邮箱")
+        return value
 
     @field_validator("password")
     @classmethod

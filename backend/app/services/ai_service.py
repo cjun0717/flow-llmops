@@ -15,6 +15,8 @@ from uuid import UUID
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
+
+from app.core.observability import langfuse_callbacks
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,7 +38,7 @@ class AIService:
             ("system", OPTIMIZE_PROMPT_TEMPLATE),
             ("human", "{prompt}"),
         ])
-        llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.5)
+        llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.5, callbacks=langfuse_callbacks())
         return prompt_template | llm | StrOutputParser()
 
     @classmethod

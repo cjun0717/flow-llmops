@@ -109,21 +109,28 @@ class Settings(BaseSettings):
     MILVUS_COLLECTION_NAME: str = "Dataset"
     MILVUS_ASSISTANT_COLLECTION_NAME: str = "AssistantAgent"
 
-    ### openai 配置（Whisper STT / TTS / Chat）###
+    ### openai 配置（仅 Whisper STT / TTS）###
     OPENAI_API_KEY: str = ""
     OPENAI_API_BASE: str = ""
 
-    ### openai embedding 配置（知识库向量化）###
-    OPENAI_EMBEDDING_API_KEY: str = ""
-    OPENAI_EMBEDDING_BASE_URL: str = "https://api.openai.com/v1"
-    OPENAI_EMBEDDING_MODEL: str = "text-embedding-3-large"
-    EMBEDDING_DIMENSION: int = 3072
-
     ### 辅助 Agent 配置 ###
     ASSISTANT_AGENT_ID: UUID = UUID("e0fcb35b-c1c0-47f7-b313-bae128911ce8")
-    ASSISTANT_AGENT_MODEL_PROVIDER: str = "openai"
-    ASSISTANT_AGENT_MODEL: str = "gpt-4o-mini"
     ASSISTANT_AGENT_TEMPERATURE: float = 0.8
     ASSISTANT_AGENT_MAX_TOKENS: int = 1024
+
+    ### 微信公众号回调 ###
+    SERVICE_API_PREFIX: str = "http://localhost:8001/api/v1"
+    SERVICE_IP: str = "127.0.0.1"
+
+    ### 默认账号（启动时幂等种子，可用用户名 chenjun 登录）###
+    DEFAULT_ACCOUNT_EMAIL: str = "chenjun@llmops.local"
+    DEFAULT_ACCOUNT_PASSWORD: str = "Chenjun@1024NB"
+    DEFAULT_ACCOUNT_NAME: str = "chenjun"
+
+    ### Langfuse 追踪（替代 imooc LangSmith / LANGCHAIN_TRACING_V2）###
+    LANGFUSE_ENABLED: bool = True
+    LANGFUSE_HOST: str = "http://localhost:3000"
+    LANGFUSE_PUBLIC_KEY: str = ""
+    LANGFUSE_SECRET_KEY: str = ""
 
 settings = Settings()

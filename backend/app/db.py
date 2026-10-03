@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import (
     create_async_engine,
 )
 from sqlalchemy.orm import DeclarativeBase, sessionmaker
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from pydantic import PostgresDsn
 import logging
 
@@ -76,6 +76,15 @@ async def init_create_table() -> None:
     logger.info("🔎 初始化数据库连接...")
     async with async_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # create_all 不会给已有表补索引；用户名登录依赖 name 唯一
+        await conn.execute(
+            text("CREATE UNIQUE INDEX IF NOT EXISTS account_name_idx ON account (name)")
+        )
+        await conn.execute(
+            text(
+                "ALTER TABLE dataset ADD COLUMN IF NOT EXISTS embedding_model_id UUID"
+            )
+        )
     logger.info("✅️ 数据库连接成功")
 
 

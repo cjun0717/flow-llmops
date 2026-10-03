@@ -80,6 +80,14 @@ watch(
         >
           创建知识库
         </a-button>
+        <a-button
+          v-if="route.path.startsWith('/space/models')"
+          type="primary"
+          class="rounded-lg"
+          @click="createType = 'model'"
+        >
+          添加模型
+        </a-button>
       </div>
       <!-- 导航按钮+搜索框 -->
       <div class="flex items-center justify-between mb-6">
@@ -112,6 +120,13 @@ watch(
             active-class="bg-gray-100"
           >
             知识库
+          </router-link>
+          <router-link
+            to="/space/models"
+            class="rounded-lg text-gray-700 px-3 h-8 leading-8 hover:bg-gray-200 transition-all"
+            active-class="bg-gray-100"
+          >
+            模型
           </router-link>
         </div>
         <!-- 右侧搜索 -->

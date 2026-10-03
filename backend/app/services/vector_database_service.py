@@ -17,19 +17,30 @@ from app.services.embeddings_service import EmbeddingsService
 
 # 向量数据库的默认集合名字
 COLLECTION_NAME = "Dataset"
+# 历史默认 collection（不带维度后缀）对应的维度，避免已有数据无法检索
+LEGACY_COLLECTION_DIM = 3072
 
 
 class VectorDatabaseService:
     """Milvus 向量数据库服务"""
 
-    def __init__(self, client: MilvusClient, embeddings_service: EmbeddingsService) -> None:
+    def __init__(
+        self,
+        client: MilvusClient,
+        embeddings_service: EmbeddingsService,
+        dimension: int,
+    ) -> None:
         self.client = client
         self.embeddings_service = embeddings_service
+        self.dimension = int(dimension)
         self._ensure_collection()
 
     @property
     def collection_name(self) -> str:
-        return settings.MILVUS_COLLECTION_NAME or COLLECTION_NAME
+        base = settings.MILVUS_COLLECTION_NAME or COLLECTION_NAME
+        if self.dimension == LEGACY_COLLECTION_DIM:
+            return base
+        return f"{base}_{self.dimension}"
 
     def _ensure_collection(self) -> None:
         """确保 collection 存在，不存在则按 schema 创建"""
@@ -37,7 +48,7 @@ class VectorDatabaseService:
             return
 
         pk = FieldSchema(name="pk", dtype=DataType.VARCHAR, is_primary=True, max_length=36)
-        vector = FieldSchema(name="vector", dtype=DataType.FLOAT_VECTOR, dim=settings.EMBEDDING_DIMENSION)
+        vector = FieldSchema(name="vector", dtype=DataType.FLOAT_VECTOR, dim=self.dimension)
         text = FieldSchema(name="text", dtype=DataType.VARCHAR, max_length=65535)
         account_id = FieldSchema(name="account_id", dtype=DataType.VARCHAR, max_length=36)
         dataset_id = FieldSchema(name="dataset_id", dtype=DataType.VARCHAR, max_length=36)
@@ -159,3 +170,23 @@ class VectorDatabaseService:
                 },
             ))
         return lcdocs
+
+    @staticmethod
+    def delete_dataset_from_all_collections(client: MilvusClient, dataset_id: str) -> None:
+        """知识库记录可能已删除，按 dataset_id 清理所有 Dataset* collection。"""
+        import logging
+
+        prefix = settings.MILVUS_COLLECTION_NAME or COLLECTION_NAME
+        try:
+            names = client.list_collections()
+        except Exception:
+            names = [prefix]
+        for name in names:
+            if name != prefix and not str(name).startswith(f"{prefix}_"):
+                continue
+            try:
+                client.delete(collection_name=name, filter=f'dataset_id == "{dataset_id}"')
+            except Exception:
+                logging.exception(
+                    "删除知识库向量失败, collection=%s, dataset_id=%s", name, dataset_id
+                )

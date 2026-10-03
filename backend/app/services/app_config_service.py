@@ -15,7 +15,7 @@ from langchain_core.tools import BaseTool
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.language_model import LanguageModelManager
+from app.config import settings
 from app.core.tools.api_tools.entities import ToolEntity
 from app.core.tools.api_tools.providers import ApiProviderManager
 from app.core.tools.builtin_tools.providers import BuiltinProviderManager
@@ -23,7 +23,7 @@ from app.core.tools.mcp_tools.entities import McpToolEntity
 from app.core.tools.mcp_tools.providers import McpProviderManager
 from app.entities.app_entity import DEFAULT_APP_CONFIG
 from app.entities.workflow_entity import WorkflowStatus
-from app.lib.helper import datetime_to_timestamp, get_value_type
+from app.lib.helper import datetime_to_timestamp
 from app.models.app import App, AppConfig, AppConfigVersion, AppDatasetJoin
 from app.models.api_tool import ApiTool, ApiToolProvider
 from app.models.dataset import Dataset
@@ -39,12 +39,10 @@ class AppConfigService:
         api_provider_manager: ApiProviderManager,
         mcp_provider_manager: McpProviderManager,
         builtin_provider_manager: BuiltinProviderManager,
-        language_model_manager: LanguageModelManager,
     ) -> None:
         self.api_provider_manager = api_provider_manager
         self.mcp_provider_manager = mcp_provider_manager
         self.builtin_provider_manager = builtin_provider_manager
-        self.language_model_manager = language_model_manager
 
     # ===== 草稿/运行时配置读取 =====
 
@@ -56,8 +54,8 @@ class AppConfigService:
         if draft_app_config is None:
             raise ValueError("应用草稿配置不存在")
 
-        validate_model_config = self._process_and_validate_model_config(
-            draft_app_config.model_config
+        validate_model_config = await self._process_and_validate_model_config(
+            draft_app_config.model_config, app.account_id, db
         )
         if draft_app_config.model_config != validate_model_config:
             draft_app_config.model_config = validate_model_config
@@ -95,8 +93,8 @@ class AppConfigService:
         if app_config is None:
             raise ValueError("应用运行时配置不存在")
 
-        validate_model_config = self._process_and_validate_model_config(
-            app_config.model_config
+        validate_model_config = await self._process_and_validate_model_config(
+            app_config.model_config, app.account_id, db
         )
         if app_config.model_config != validate_model_config:
             app_config.model_config = validate_model_config
@@ -308,7 +306,7 @@ class AppConfigService:
                         "id": provider_entity.name,
                         "name": provider_entity.name,
                         "label": provider_entity.label,
-                        "icon": f"/api/v1/builtin-tools/{provider_entity.name}/icon",
+                        "icon": f"{settings.SERVICE_API_PREFIX.rstrip('/')}/builtin-tools/{provider_entity.name}/icon",
                         "description": provider_entity.description,
                     },
                     "tool": {
@@ -437,61 +435,36 @@ class AppConfigService:
 
     # ===== 私有：model_config 校验 =====
 
-    def _process_and_validate_model_config(
-        self, origin_model_config: Any
+    async def _process_and_validate_model_config(
+        self,
+        origin_model_config: Any,
+        account_id: UUID,
+        db: AsyncSession,
     ) -> dict[str, Any]:
-        if not isinstance(origin_model_config, dict):
-            return DEFAULT_APP_CONFIG["model_config"]
+        from app.models.user_model import UserModel, UserModelType
+        from app.services.user_model_service import sanitize_chat_parameters
 
-        model_config = {
-            "provider": origin_model_config.get("provider", ""),
-            "model": origin_model_config.get("model", ""),
-            "parameters": origin_model_config.get("parameters", {}),
+        default = {
+            "user_model_id": "",
+            "parameters": dict(DEFAULT_APP_CONFIG["model_config"]["parameters"]),
         }
+        if not isinstance(origin_model_config, dict):
+            return default
 
-        if not model_config["provider"] or not isinstance(model_config["provider"], str):
-            return DEFAULT_APP_CONFIG["model_config"]
+        parameters = sanitize_chat_parameters(origin_model_config.get("parameters") or {})
+        user_model_id = origin_model_config.get("user_model_id") or ""
+        if not user_model_id or not isinstance(user_model_id, str):
+            return {"user_model_id": "", "parameters": parameters}
         try:
-            provider = self.language_model_manager.get_provider(model_config["provider"])
+            uid = UUID(user_model_id)
         except Exception:
-            return DEFAULT_APP_CONFIG["model_config"]
-        if provider is None:
-            return DEFAULT_APP_CONFIG["model_config"]
+            return {"user_model_id": "", "parameters": parameters}
 
-        if not model_config["model"] or not isinstance(model_config["model"], str):
-            return DEFAULT_APP_CONFIG["model_config"]
-        try:
-            model_entity = provider.get_model_entity(model_config["model"])
-        except Exception:
-            return DEFAULT_APP_CONFIG["model_config"]
-        if model_entity is None:
-            return DEFAULT_APP_CONFIG["model_config"]
-
-        if not isinstance(model_config["parameters"], dict):
-            model_config["parameters"] = {
-                parameter.name: parameter.default for parameter in model_entity.parameters
-            }
-
-        parameters = {}
-        for parameter in model_entity.parameters:
-            parameter_value = model_config["parameters"].get(parameter.name, parameter.default)
-            if parameter.required:
-                if parameter_value is None:
-                    parameter_value = parameter.default
-                else:
-                    if get_value_type(parameter_value) != parameter.type.value:
-                        parameter_value = parameter.default
-            else:
-                if parameter_value is not None:
-                    if get_value_type(parameter_value) != parameter.type.value:
-                        parameter_value = parameter.default
-            if parameter.options and parameter_value not in parameter.options:
-                parameter_value = parameter.default
-            from app.core.language_model.entities.model_entity import ModelParameterType
-            if parameter.type in [ModelParameterType.INT, ModelParameterType.FLOAT] and parameter_value is not None:
-                if (parameter.min and parameter_value < parameter.min) or (parameter.max and parameter_value > parameter.max):
-                    parameter_value = parameter.default
-            parameters[parameter.name] = parameter_value
-
-        model_config["parameters"] = parameters
-        return model_config
+        record = await db.get(UserModel, uid)
+        if (
+            record is None
+            or record.account_id != account_id
+            or record.model_type != UserModelType.CHAT
+        ):
+            return {"user_model_id": "", "parameters": parameters}
+        return {"user_model_id": str(record.id), "parameters": parameters}

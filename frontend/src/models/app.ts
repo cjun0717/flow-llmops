@@ -30,8 +30,8 @@ export type GetAppsWithPageResponse = BasePaginatorResponse<{
   description: string
   preset_prompt: string
   model_config: {
-    provider: string
-    model: string
+    user_model_id: string
+    name: string
   }
   status: string
   updated_at: number
@@ -41,7 +41,7 @@ export type GetAppsWithPageResponse = BasePaginatorResponse<{
 // 获取特定应用的草稿配置响应结构
 export type GetDraftAppConfigResponse = BaseResponse<{
   id: string
-  model_config: { provider: string; model: string; parameters: Record<string, any> }
+  model_config: { user_model_id: string; parameters: Record<string, any> }
   dialog_round: number
   preset_prompt: string
   tools: {
@@ -76,7 +76,7 @@ export type GetDraftAppConfigResponse = BaseResponse<{
 
 // 更新特定应用的草稿配置请求结构
 export type UpdateDraftAppConfigRequest = {
-  model_config?: { provider: string; model: string; parameters: Record<string, any> }
+    model_config?: { user_model_id: string; parameters: Record<string, any> }
   dialog_round?: number
   preset_prompt?: string
   tools?: { type: string; provider_id: string; tool_id: string; params: Record<string, any> }[]

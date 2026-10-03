@@ -15,6 +15,8 @@ from uuid import UUID
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
+
+from app.core.observability import langfuse_callbacks
 from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -43,7 +45,7 @@ class ConversationService:
     def summary(cls, human_message: str, ai_message: str, old_summary: str = "") -> str:
         """根据传递的人类消息、AI消息还有原始的摘要信息总结生成一段新的摘要"""
         prompt = ChatPromptTemplate.from_template(SUMMARIZER_TEMPLATE)
-        llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.5)
+        llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.5, callbacks=langfuse_callbacks())
         summary_chain = prompt | llm | StrOutputParser()
         new_summary = summary_chain.invoke({
             "summary": old_summary,
@@ -58,7 +60,7 @@ class ConversationService:
             ("system", CONVERSATION_NAME_TEMPLATE),
             ("human", "{query}"),
         ])
-        llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+        llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, callbacks=langfuse_callbacks())
         structured_llm = llm.with_structured_output(ConversationInfo)
         chain = prompt | structured_llm
 
@@ -89,7 +91,7 @@ class ConversationService:
             ("system", SUGGESTED_QUESTIONS_TEMPLATE),
             ("human", "{histories}"),
         ])
-        llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+        llm = ChatOpenAI(model="gpt-4o-mini", temperature=0, callbacks=langfuse_callbacks())
         structured_llm = llm.with_structured_output(SuggestedQuestions)
         chain = prompt | structured_llm
 

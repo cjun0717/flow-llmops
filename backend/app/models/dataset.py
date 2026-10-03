@@ -42,6 +42,11 @@ class Dataset(BaseModel):
         server_default=text("''::text"),
         comment="描述信息"
     )
+    embedding_model_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        Uuid,
+        nullable=True,
+        comment="创建时锁定的向量模型 ID",
+    )
 
 
 class Document(BaseModel):

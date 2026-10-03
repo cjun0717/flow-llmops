@@ -24,7 +24,6 @@ from app.exceptions import NotFoundException
 from app.lib.helper import combine_documents
 from app.models.dataset import Dataset, DatasetQuery, KeywordTable, Segment
 from app.services.jieba_service import JiebaService
-from app.services.vector_database_service import VectorDatabaseService
 
 
 class RetrievalService:
@@ -33,10 +32,8 @@ class RetrievalService:
     def __init__(
         self,
         jieba_service: JiebaService,
-        vector_database_service: VectorDatabaseService,
     ) -> None:
         self.jieba_service = jieba_service
-        self.vector_database_service = vector_database_service
 
     async def search_in_datasets(
         self,
@@ -61,11 +58,13 @@ class RetrievalService:
 
         # 2.按策略分发检索
         if retrieval_strategy == RetrievalStrategy.SEMANTIC:
-            lc_documents = await self._search_semantic(query, k, valid_dataset_ids, score)
+            lc_documents = await self._search_semantic(query, k, datasets, score)
         elif retrieval_strategy == RetrievalStrategy.FULL_TEXT:
             lc_documents = await self._search_full_text(query, k, valid_dataset_ids, db)
         else:
-            lc_documents = await self._search_hybrid(query, k, valid_dataset_ids, score, db)
+            lc_documents = await self._search_hybrid(
+                query, k, datasets, valid_dataset_ids, score, db
+            )
 
         # 3.写 DatasetQuery（每个命中的 dataset_id 一条）
         unique_dataset_ids = list({
@@ -94,16 +93,39 @@ class RetrievalService:
         return lc_documents
 
     async def _search_semantic(
-        self, query: str, k: int, dataset_ids: list[str], score: float
+        self, query: str, k: int, datasets: list[Dataset], score: float
     ) -> list[LCDocument]:
-        """向量检索（同步调用，用 threadpool 包装）"""
-        return await run_in_threadpool(
-            self.vector_database_service.search,
-            query=query,
-            top_k=k,
-            dataset_ids=dataset_ids,
-            score_threshold=score,
-        )
+        """按知识库绑定的向量模型分组检索。"""
+        from app.db import SyncSessionLocal
+        from app.deps import get_milvus_client, get_sync_redis
+        from app.services.embeddings_service import EmbeddingsService
+        from app.services.user_model_service import UserModelService
+        from app.services.vector_database_service import VectorDatabaseService
+
+        groups: dict[str, dict] = {}
+        with SyncSessionLocal() as sync_db:
+            for dataset in datasets:
+                record = UserModelService.resolve_embedding_sync(dataset, sync_db)
+                bucket = groups.setdefault(
+                    str(record.id),
+                    {"record": record, "ids": []},
+                )
+                bucket["ids"].append(str(dataset.id))
+
+        def _search_group(record, dataset_ids: list[str]) -> list[LCDocument]:
+            embeddings = EmbeddingsService.from_user_model(record, get_sync_redis())
+            vdb = VectorDatabaseService(
+                get_milvus_client(), embeddings, record.dimension
+            )
+            return vdb.search(query, k, dataset_ids, score)
+
+        results: list[LCDocument] = []
+        for group in groups.values():
+            results.extend(
+                await run_in_threadpool(_search_group, group["record"], group["ids"])
+            )
+        results.sort(key=lambda doc: float(doc.metadata.get("score", 0.0)), reverse=True)
+        return results[:k]
 
     async def _search_full_text(
         self, query: str, k: int, dataset_ids: list[str], db: AsyncSession
@@ -169,6 +191,7 @@ class RetrievalService:
         self,
         query: str,
         k: int,
+        datasets: list[Dataset],
         dataset_ids: list[str],
         score: float,
         db: AsyncSession,
@@ -177,7 +200,7 @@ class RetrievalService:
         # 并行执行两种检索（semantic 走 threadpool，full_text 走 async）
         import asyncio
 
-        sem_task = asyncio.create_task(self._search_semantic(query, k, dataset_ids, score))
+        sem_task = asyncio.create_task(self._search_semantic(query, k, datasets, score))
         ft_task = asyncio.create_task(self._search_full_text(query, k, dataset_ids, db))
         sem_docs, ft_docs = await asyncio.gather(sem_task, ft_task)
 

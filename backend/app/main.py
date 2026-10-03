@@ -6,11 +6,13 @@ from fastapi import FastAPI
 
 from app.api.main import api_router
 from app.config import settings
-from app.db import close_async_engine, init_create_table
-from app.deps import close_redis
+from app.db import close_async_engine, init_create_table, AsyncSessionLocal
+from app.deps import close_redis, get_minio_client
 from app.exceptions import register_exception_handlers
 from app.logging_config import setup_logging
 from app.middlewares import register_middlewares
+from app.services.account_service import AccountService
+from app.services.upload_file_service import UploadFileService
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +29,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         await init_create_table()
     except Exception:
         raise
+
+    try:
+        async with AsyncSessionLocal() as db:
+            await AccountService.seed_default_account(db)
+    except Exception:
+        logger.exception("种子默认账号失败")
+
+    try:
+        UploadFileService.ensure_bucket(await get_minio_client())
+    except Exception:
+        logger.exception("初始化 MinIO 桶失败")
 
     yield
 

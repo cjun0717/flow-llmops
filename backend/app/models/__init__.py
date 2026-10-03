@@ -11,6 +11,7 @@ from .end_user import EndUser
 from .mcp_tool import McpTool, McpToolProvider
 from .platform import WechatConfig, WechatEndUser, WechatMessage
 from .upload_file import UploadFile
+from .user_model import UserModel
 from .workflow import Workflow, WorkflowResult
 
 __all__ = [
@@ -24,4 +25,5 @@ __all__ = [
     "Workflow", "WorkflowResult",
     "WechatConfig", "WechatEndUser", "WechatMessage",
     "McpTool", "McpToolProvider",
+    "UserModel",
 ]

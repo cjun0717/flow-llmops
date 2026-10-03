@@ -3,11 +3,12 @@ import moment from 'moment/moment'
 import {useDeleteWorkflow, useGetWorkflowsWithPage} from '@/hooks/use-workflow'
 import {onMounted, ref, watch} from 'vue'
 import {useAccountStore} from '@/stores/account'
-import {useRoute} from 'vue-router'
+import {useRoute, useRouter} from 'vue-router'
 import CreateOrUpdateWorkflowModal from '@/views/space/workflows/components/CreateOrUpdateWorkflowModal.vue'
 
 // 1.定义页面所需数据
 const route = useRoute()
+const router = useRouter()
 const props = defineProps({
   createType: {type: String, default: '', required: true},
 })
@@ -68,7 +69,16 @@ watch(
     <a-row :gutter="[20, 20]" class="flex-1">
       <!-- 有数据的UI状态 -->
       <a-col v-for="workflow in workflows" :key="workflow.id" :span="6">
-        <a-card hoverable class="cursor-pointer rounded-lg">
+        <div
+          class="cursor-pointer"
+          @click="
+            router.push({
+              name: 'space-workflows-detail',
+              params: { workflow_id: workflow.id },
+            })
+          "
+        >
+        <a-card hoverable class="rounded-lg">
           <!-- 顶部工作流名称 -->
           <div class="flex items-center gap-3 mb-3">
             <!-- 左侧图标 -->
@@ -94,6 +104,7 @@ watch(
                 </div>
               </div>
               <!-- 操作按钮 -->
+              <div @click.stop>
               <a-dropdown position="br">
                 <a-button type="text" size="small" class="rounded-lg !text-gray-700 flex-shrink-0">
                   <template #icon>
@@ -124,6 +135,7 @@ watch(
                   </a-doption>
                 </template>
               </a-dropdown>
+              </div>
             </div>
           </div>
           <!-- 工作流的描述信息 -->
@@ -141,6 +153,7 @@ watch(
             </div>
           </div>
         </a-card>
+        </div>
       </a-col>
       <!-- 没数据的UI状态 -->
       <a-col v-if="workflows.length === 0" :span="24">

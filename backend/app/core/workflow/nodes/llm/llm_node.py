@@ -2,8 +2,7 @@
 # -*- coding: utf-8 -*-
 """大语言模型节点（迁移自 imooc llm_node.py）。
 
-适配 FastAPI：通过 deps 中的 lru_cache 单例访问器获取 LanguageModelService，
-在子线程中同步调用 llm.stream。
+从账号在前端添加的用户模型加载对话实例，在子线程中同步调用 llm.stream。
 """
 from __future__ import annotations
 
@@ -33,11 +32,9 @@ class LLMNode(BaseNode):
         template = Template(self.node_data.prompt)
         prompt_value = template.render(**inputs_dict)
 
-        # 2.通过 lru_cache 单例访问器获取语言模型服务并加载模型
-        from app.deps import get_language_model_manager
         from app.services.language_model_service import LanguageModelService
 
-        language_model_service = LanguageModelService(get_language_model_manager())
+        language_model_service = LanguageModelService()
         llm = language_model_service.load_language_model(self.node_data.language_model_config)
 
         # 3.使用 stream 代替 invoke，避免长时间未响应超时

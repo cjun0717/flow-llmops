@@ -5,6 +5,7 @@ import { useCredentialStore } from '@/stores/credential'
 import { Message, type ValidatedError } from '@arco-design/web-vue'
 import { usePasswordLogin } from '@/hooks/use-auth'
 import { useProvider } from '@/hooks/use-oauth'
+import BrandLogo from '@/components/BrandLogo.vue'
 
 // 1.定义自定义组件所需数据
 const errorMessage = ref('')
@@ -49,8 +50,8 @@ const handleSubmit = async ({ errors }: { errors: Record<string, ValidatedError>
 <template>
   <div class="">
     <!-- 顶部标题 -->
-    <div class="text-gray-900 font-bold text-2xl leading-8">慕课LLMOps AppBuilder</div>
-    <p class="text-base leading-6 text-gray-600">高效开发你的AI原生应用</p>
+    <brand-logo size="lg" class="mb-2" />
+    <p class="text-base leading-6 text-gray-600">AI 应用 · 智能体 · 工作流</p>
     <!-- 错误提示占位符 -->
     <div class="h-8 text-red-700 leading-8 line-clamp-1">{{ errorMessage }}</div>
     <!-- 登录表单 -->
@@ -63,11 +64,11 @@ const handleSubmit = async ({ errors }: { errors: Record<string, ValidatedError>
     >
       <a-form-item
         field="email"
-        :rules="[{ type: 'email', required: true, message: '登录账号必须是合法的邮箱' }]"
+        :rules="[{ required: true, message: '请输入用户名' }]"
         :validate-trigger="['change', 'blur']"
         hide-label
       >
-        <a-input v-model="loginForm.email" size="large" placeholder="登录账号">
+        <a-input v-model="loginForm.email" size="large" placeholder="用户名">
           <template #prefix>
             <icon-user />
           </template>

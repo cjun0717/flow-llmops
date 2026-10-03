@@ -28,6 +28,28 @@ TEST_PASSWORD = "Test1234"
 TEST_NAME = "阶段5a测试账号"
 
 
+async def _ensure_embedding_model(client, headers) -> str:
+    r = await client.get("/api/v1/user-models", headers=headers, params={"model_type": "embedding"})
+    items = r.json().get("data") or []
+    if items:
+        return items[0]["id"]
+    r = await client.post(
+        "/api/v1/user-models",
+        headers=headers,
+        json={
+            "name": "阶段5a向量模型",
+            "model_type": "embedding",
+            "base_url": "https://api.example.com/v1",
+            "api_key": "sk-test",
+            "model_serve_name": "demo-embed",
+            "dimension": 3072,
+            "verify": False,
+        },
+    )
+    assert r.json()["code"] == "success", r.text
+    return r.json()["data"]["id"]
+
+
 @pytest.fixture(scope="module")
 def app():
     return create_app()
@@ -81,6 +103,7 @@ async def test_dataset_crud_flow(app, auth_token):
     headers = {"Authorization": f"Bearer {auth_token}"}
 
     async with AsyncClient(transport=transport, base_url="http://test") as client:
+        embed_id = await _ensure_embedding_model(client, headers)
         # 1. 创建知识库
         r = await client.post(
             "/api/v1/datasets",
@@ -89,6 +112,7 @@ async def test_dataset_crud_flow(app, auth_token):
                 "name": "测试知识库5a",
                 "icon": "https://example.com/icon.png",
                 "description": "阶段5a测试",
+                "embedding_model_id": embed_id,
             },
         )
         assert r.status_code == 200, r.text
@@ -150,6 +174,7 @@ async def test_dataset_crud_flow(app, auth_token):
                 "name": "另一个知识库",
                 "icon": "https://example.com/icon.png",
                 "description": "",
+                "embedding_model_id": embed_id,
             },
         )
         assert r.status_code == 200
@@ -161,6 +186,7 @@ async def test_dataset_crud_flow(app, auth_token):
                 "name": "另一个知识库",
                 "icon": "https://example.com/icon.png",
                 "description": "",
+                "embedding_model_id": embed_id,
             },
         )
         assert r.json()["code"] == "validate_error"
@@ -202,6 +228,7 @@ async def test_document_create_records(app, auth_token):
     headers = {"Authorization": f"Bearer {auth_token}"}
 
     async with AsyncClient(transport=transport, base_url="http://test") as client:
+        embed_id = await _ensure_embedding_model(client, headers)
         # 1. 创建知识库
         r = await client.post(
             "/api/v1/datasets",
@@ -210,6 +237,7 @@ async def test_document_create_records(app, auth_token):
                 "name": "文档测试知识库",
                 "icon": "https://example.com/icon.png",
                 "description": "",
+                "embedding_model_id": embed_id,
             },
         )
         assert r.status_code == 200
@@ -290,6 +318,7 @@ async def test_segment_manual_crud(app, auth_token):
     headers = {"Authorization": f"Bearer {auth_token}"}
 
     async with AsyncClient(transport=transport, base_url="http://test") as client:
+        embed_id = await _ensure_embedding_model(client, headers)
         # 1. 创建知识库 + 上传 txt + 创建文档（automatic，等待 worker 构建）
         r = await client.post(
             "/api/v1/datasets",
@@ -298,6 +327,7 @@ async def test_segment_manual_crud(app, auth_token):
                 "name": "片段测试知识库",
                 "icon": "https://example.com/icon.png",
                 "description": "",
+                "embedding_model_id": embed_id,
             },
         )
         assert r.status_code == 200

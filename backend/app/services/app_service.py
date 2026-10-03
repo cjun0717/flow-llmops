@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import AsyncGenerator
+from copy import deepcopy
 from uuid import UUID
 
 from sqlalchemy import desc, func, select
@@ -25,13 +26,14 @@ from app.entities.app_entity import (
 )
 from app.entities.conversation_entity import InvokeFrom, MessageStatus
 from app.entities.dataset_entity import RetrievalSource
-from app.exceptions import FailException, ForbiddenException, NotFoundException
+from app.exceptions import FailException, ForbiddenException, NotFoundException, ValidateException
 from app.lib.helper import generate_random_string
 from app.models.account import Account
 from app.models.app import App, AppConfig, AppConfigVersion, AppDatasetJoin
 from app.models.api_tool import ApiTool
 from app.models.conversation import Conversation, Message
 from app.models.mcp_tool import McpTool
+from app.models.user_model import UserModel
 from app.schemas.app import (
     AppDetailData,
     AppListItemData,
@@ -83,6 +85,17 @@ class AppService:
         return config
 
     @staticmethod
+    async def _model_display_name(model_config: dict | None, db: AsyncSession) -> str:
+        uid = (model_config or {}).get("user_model_id") or ""
+        if not uid:
+            return "未选择模型"
+        try:
+            record = await db.get(UserModel, UUID(str(uid)))
+        except Exception:
+            return "未选择模型"
+        return record.name if record else "未选择模型"
+
+    @staticmethod
     async def get_app(app_id: UUID, account: Account, db: AsyncSession) -> App:
         """获取应用并校验权限"""
         result = await db.execute(select(App).where(App.id == app_id))
@@ -108,11 +121,16 @@ class AppService:
         db.add(app)
         await db.flush()
 
+        config_data = deepcopy(DEFAULT_APP_CONFIG)
+        from app.services.user_model_service import UserModelService
+        config_data["model_config"] = await UserModelService.default_chat_model_config(
+            account, db
+        )
         config = AppConfigVersion(
             app_id=app.id,
             version=0,
             config_type=AppConfigType.DRAFT,
-            **DEFAULT_APP_CONFIG,
+            **config_data,
         )
         db.add(config)
         await db.flush()
@@ -212,7 +230,8 @@ class AppService:
         items: list[AppListItemData] = []
         for app in apps:
             config = await AppService._get_or_create_draft_config(app.id, db)
-            items.append(AppListItemData.from_model(app, config))
+            model_name = await AppService._model_display_name(config.model_config, db)
+            items.append(AppListItemData.from_model(app, config, model_name))
 
         return page_data(
             items,
@@ -270,6 +289,9 @@ class AppService:
         """发布/更新指定的应用草稿配置为运行时配置"""
         app = await AppService.get_app(app_id, account, db)
         draft_app_config = await app_config_service.get_draft_app_config(app, db)
+        user_model_id = (draft_app_config.get("model_config") or {}).get("user_model_id") or ""
+        if not user_model_id:
+            raise ValidateException("请先在模型管理中添加并选择对话模型")
 
         app_config = AppConfig(
             app_id=app_id,
@@ -765,11 +787,13 @@ class AppService:
         from minio import Minio
 
         from app.config import settings
+        from app.core.observability import langfuse_callbacks
         from app.db import SyncSessionLocal
         from app.entities.ai_entity import OPTIMIZE_PROMPT_TEMPLATE
         from app.models.upload_file import UploadFile
+        from app.services.upload_file_service import UploadFileService
 
-        llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.8)
+        llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.8, callbacks=langfuse_callbacks())
         dalle_api_wrapper = DallEAPIWrapper(model="dall-e-3", size="1024x1024")
         generate_icon_chain = (
             ChatPromptTemplate.from_template(GENERATE_ICON_PROMPT_TEMPLATE)
@@ -801,8 +825,7 @@ class AppService:
             secure=False,
         )
         bucket = settings.MINIO_BUCKET
-        if not minio_client.bucket_exists(bucket):
-            minio_client.make_bucket(bucket)
+        UploadFileService.ensure_bucket(minio_client)
         minio_client.put_object(
             bucket_name=bucket,
             object_name=object_key,
@@ -810,7 +833,7 @@ class AppService:
             length=len(icon_content),
             content_type="image/png",
         )
-        icon = f"{settings.MINIO_BASE_URL}/{bucket}/{object_key}"
+        icon = UploadFileService.get_file_url(object_key)
 
         with SyncSessionLocal() as db:
             account = db.get(Account, account_id)

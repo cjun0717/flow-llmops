@@ -33,7 +33,7 @@ const message_id = ref('')
 const scroller = ref<any>(null)
 const scrollHeight = ref(0)
 const accountStore = useAccountStore()
-const opening_questions = ['什么是慕课LLMOps?', '我想创建一个应用', '能介绍下什么是RAG吗?']
+const opening_questions = ['Flow LLMOps 能做什么?', '我想创建一个应用', '能介绍下什么是RAG吗?']
 const { suggested_questions, handleGenerateSuggestedQuestions } = useGenerateSuggestedQuestions()
 const { loading: assistantAgentChatLoading, handleAssistantAgentChat } = useAssistantAgentChat()
 const {
@@ -363,7 +363,7 @@ onMounted(async () => {
       >
         <div class="mb-9">
           <div class="text-[40px] font-bold text-gray-700 mt-[52px] mb-4">
-            Hi，我是慕课 AI 应用构建器
+            Hi，我是 Flow LLMOps
           </div>
           <div class="text-[30px] font-bold text-gray-700 mb-2">
             你的专属
@@ -371,8 +371,8 @@ onMounted(async () => {
             开发平台
           </div>
           <div class="text-base text-gray-700">
-            说出你的创意，我可以快速帮你创建专属应用，一键轻松分享给朋友，也可以一键发布到慕课
-            LLMOps 平台、微信等多个渠道。
+            说出你的创意，我可以快速帮你创建专属应用，一键轻松分享给朋友，也可以一键发布到 Flow
+            LLMOps、微信等多个渠道。
           </div>
         </div>
         <!-- 开场AI对话消息 -->
@@ -389,9 +389,9 @@ onMounted(async () => {
             <div
               class="bg-white border border-gray-200 text-gray-700 px-4 py-3 rounded-2xl break-all leading-7"
             >
-              <div class="font-bold">你好，欢迎来到慕课LLMOps🎉</div>
+              <div class="font-bold">你好，欢迎来到 Flow LLMOps🎉</div>
               <div class="">
-                慕课LLMOps是新一代大模型 AI 应用开发平台。无论你是否有编程基础，都可以快速搭建出各种
+                Flow LLMOps 面向 AI 应用、智能体和工作流。无论你是否有编程基础，都可以快速搭建出各种
                 AI 应用，并一键发布到各大社交平台，或者轻松部署到自己的网站。
               </div>
               <ul class="list-disc pl-6">
@@ -403,9 +403,9 @@ onMounted(async () => {
                   逛逛，这里内置了许多超有趣的应用。
                 </li>
                 <li>你也可以直接发送“我想做一个应用”，我可以帮你快速创建应用。</li>
-                <li>你也可以向我提问有关课程的问题，我可以快速替你解答。</li>
+                <li>你也可以向我提问有关平台使用的问题，我可以快速替你解答。</li>
               </ul>
-              <div class="">如果你还有其他慕课LLMOps使用问题，也欢迎随时问我！</div>
+              <div class="">如果你还有其他 Flow LLMOps 使用问题，也欢迎随时问我！</div>
             </div>
             <!-- 开场白建议问题 -->
             <div class="flex flex-col gap-2">

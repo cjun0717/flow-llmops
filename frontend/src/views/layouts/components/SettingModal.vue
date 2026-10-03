@@ -133,7 +133,7 @@ watch(
           <a-form-item field="name">
             <template #label>
               <div class="flex items-center gap-1">
-                账号昵称
+                用户名
                 <div class="text-red-700">*</div>
               </div>
             </template>
@@ -141,7 +141,7 @@ watch(
               <!-- 左侧输入框 -->
               <a-input
                 v-model="accountForm.name"
-                placeholder="请输入账号名称"
+                placeholder="请输入用户名"
                 :default-value="accountStore.account.name"
               />
               <!-- 取消&保存 -->

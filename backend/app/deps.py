@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""基础设施组件依赖：DB / Redis / MinIO / LanguageModelManager / Milvus / Embeddings / Segment。"""
+"""基础设施组件依赖：DB / Redis / MinIO / Milvus / Segment。"""
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
@@ -14,15 +14,12 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
-from app.core.language_model import LanguageModelManager
 from app.db import AsyncSessionLocal
-from app.services.embeddings_service import EmbeddingsService
 from app.services.jieba_service import JiebaService
 from app.services.keyword_table_service import KeywordTableService
 from app.services.language_model_service import LanguageModelService
 from app.services.retrieval_service import RetrievalService
 from app.services.segment_service import SegmentService
-from app.services.vector_database_service import VectorDatabaseService
 from app.services.api_tool_service import ApiToolService
 from app.services.app_config_service import AppConfigService
 from app.services.builtin_tool_service import BuiltinToolService
@@ -93,17 +90,9 @@ RedisDep = Annotated[Redis, Depends(get_redis)]
 MinioDep = Annotated[Minio, Depends(get_minio_client)]
 
 
-@lru_cache
-def get_language_model_manager() -> LanguageModelManager:
-    """获取语言模型管理器（进程内单例，构造时读 yaml）"""
-    return LanguageModelManager()
-
-
-def get_language_model_service(
-    manager: LanguageModelManager = Depends(get_language_model_manager),
-) -> LanguageModelService:
+def get_language_model_service() -> LanguageModelService:
     """获取语言模型服务"""
-    return LanguageModelService(manager)
+    return LanguageModelService()
 
 
 # 语言模型
@@ -136,12 +125,6 @@ def get_milvus_client() -> MilvusClient:
 
 
 @lru_cache
-def get_embeddings_service() -> EmbeddingsService:
-    """获取 Embeddings 服务（进程内单例）"""
-    return EmbeddingsService(get_sync_redis())
-
-
-@lru_cache
 def get_jieba_service() -> JiebaService:
     """获取 Jieba 服务（进程内单例）"""
     return JiebaService()
@@ -153,20 +136,12 @@ def get_keyword_table_service() -> KeywordTableService:
     return KeywordTableService(get_sync_redis())
 
 
-@lru_cache
-def get_vector_database_service() -> VectorDatabaseService:
-    """获取向量数据库服务（进程内单例）"""
-    return VectorDatabaseService(get_milvus_client(), get_embeddings_service())
-
-
 def get_segment_service(
     jieba: JiebaService = Depends(get_jieba_service),
-    embeddings: EmbeddingsService = Depends(get_embeddings_service),
     keyword_table: KeywordTableService = Depends(get_keyword_table_service),
-    vector_db: VectorDatabaseService = Depends(get_vector_database_service),
 ) -> SegmentService:
     """获取片段服务"""
-    return SegmentService(jieba, embeddings, keyword_table, vector_db)
+    return SegmentService(jieba, keyword_table)
 
 
 SegmentServiceDep = Annotated[SegmentService, Depends(get_segment_service)]
@@ -174,10 +149,9 @@ SegmentServiceDep = Annotated[SegmentService, Depends(get_segment_service)]
 
 def get_retrieval_service(
     jieba: JiebaService = Depends(get_jieba_service),
-    vector_db: VectorDatabaseService = Depends(get_vector_database_service),
 ) -> RetrievalService:
     """获取检索服务"""
-    return RetrievalService(jieba, vector_db)
+    return RetrievalService(jieba)
 
 
 RetrievalServiceDep = Annotated[RetrievalService, Depends(get_retrieval_service)]
@@ -245,14 +219,12 @@ def get_app_config_service(
     api_provider_manager: ApiProviderManager = Depends(get_api_provider_manager),
     mcp_provider_manager: McpProviderManager = Depends(get_mcp_provider_manager),
     builtin_provider_manager: BuiltinProviderManager = Depends(get_builtin_provider_manager),
-    language_model_manager: LanguageModelManager = Depends(get_language_model_manager),
 ) -> AppConfigService:
     """获取应用配置服务"""
     return AppConfigService(
         api_provider_manager,
         mcp_provider_manager,
         builtin_provider_manager,
-        language_model_manager,
     )
 
 
@@ -277,7 +249,7 @@ BuiltinAppManagerDep = Annotated[BuiltinAppManager, Depends(get_builtin_app_mana
 @lru_cache
 def get_assistant_knowledge_service() -> AssistantKnowledgeService:
     """获取辅助 Agent 知识检索服务（Milvus collection，进程内单例）"""
-    return AssistantKnowledgeService(get_milvus_client(), get_embeddings_service())
+    return AssistantKnowledgeService(get_milvus_client())
 
 
 AssistantKnowledgeServiceDep = Annotated[

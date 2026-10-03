@@ -30,6 +30,28 @@ TEST_PASSWORD = "Test1234"
 TEST_NAME = "阶段5b测试账号"
 
 
+async def _ensure_embedding_model(client, headers) -> str:
+    r = await client.get("/api/v1/user-models", headers=headers, params={"model_type": "embedding"})
+    items = r.json().get("data") or []
+    if items:
+        return items[0]["id"]
+    r = await client.post(
+        "/api/v1/user-models",
+        headers=headers,
+        json={
+            "name": "阶段5b向量模型",
+            "model_type": "embedding",
+            "base_url": "https://api.example.com/v1",
+            "api_key": "sk-test",
+            "model_serve_name": "demo-embed",
+            "dimension": 3072,
+            "verify": False,
+        },
+    )
+    assert r.json()["code"] == "success", r.text
+    return r.json()["data"]["id"]
+
+
 @pytest.fixture(scope="module")
 def app():
     return create_app()
@@ -77,10 +99,16 @@ def _milvus_available() -> bool:
 
 async def _build_dataset_with_doc(client, headers, name, txt_content):
     """创建知识库 + 上传 txt + 创建文档，返回 (dataset_id, document_id, batch)"""
+    embed_id = await _ensure_embedding_model(client, headers)
     r = await client.post(
         "/api/v1/datasets",
         headers=headers,
-        json={"name": name, "icon": "https://example.com/icon.png", "description": ""},
+        json={
+            "name": name,
+            "icon": "https://example.com/icon.png",
+            "description": "",
+            "embedding_model_id": embed_id,
+        },
     )
     assert r.status_code == 200
     r = await client.get("/api/v1/datasets", headers=headers)

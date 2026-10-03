@@ -115,6 +115,8 @@ export const useCreateOrUpdateDataset = () => {
     icon: '',
     name: '',
     description: '',
+    embedding_model_id: '',
+    embedding_model_name: '',
   }
   const form = ref(defaultForm)
   const formRef = ref<InstanceType<typeof Form>>()
@@ -142,6 +144,7 @@ export const useCreateOrUpdateDataset = () => {
           icon: form.value.icon,
           name: form.value.name,
           description: form.value.description,
+          embedding_model_id: form.value.embedding_model_id,
         })
         Message.success(resp.message)
       }

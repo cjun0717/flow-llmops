@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.app import App, AppConfigVersion
 from app.schemas.response import PageParams
+from app.services.upload_file_service import UploadFileService
 
 
 def _datetime_to_timestamp(dt: datetime | None) -> int:
@@ -50,16 +51,16 @@ class AppListItemData(BaseModel):
     created_at: int
 
     @classmethod
-    def from_model(cls, app: App, config: AppConfigVersion) -> "AppListItemData":
+    def from_model(cls, app: App, config: AppConfigVersion, model_name: str = "未选择模型") -> "AppListItemData":
         return cls(
             id=app.id,
             name=app.name,
-            icon=app.icon,
+            icon=UploadFileService.to_browser_url(app.icon),
             description=app.description,
             preset_prompt=config.preset_prompt,
             model_config_data={
-                "provider": (config.model_config or {}).get("provider", ""),
-                "model": (config.model_config or {}).get("model", ""),
+                "user_model_id": (config.model_config or {}).get("user_model_id", ""),
+                "name": model_name,
             },
             status=app.status,
             updated_at=_datetime_to_timestamp(app.updated_at),
@@ -85,7 +86,7 @@ class AppDetailData(BaseModel):
             id=app.id,
             debug_conversation_id=str(app.debug_conversation_id) if app.debug_conversation_id else "",
             name=app.name,
-            icon=app.icon,
+            icon=UploadFileService.to_browser_url(app.icon),
             description=app.description,
             status=app.status,
             draft_updated_at=_datetime_to_timestamp(draft_config.updated_at),

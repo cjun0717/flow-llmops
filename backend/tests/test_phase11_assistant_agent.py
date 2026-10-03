@@ -18,13 +18,13 @@ from httpx import ASGITransport, AsyncClient
 from pydantic import ValidationError
 from sqlalchemy.exc import OperationalError
 
-from app.config import settings
 from app.core.agent.entities.agent_entity import DATASET_RETRIEVAL_TOOL_NAME
 from app.main import create_app
 from app.schemas.assistant_agent import (
     AssistantAgentChatReq,
     GetAssistantAgentMessagesWithPageReq,
 )
+from app.exceptions import FailException
 from app.services.assistant_agent_service import AssistantAgentService
 
 
@@ -73,17 +73,11 @@ def test_create_app_tool_dispatches_celery():
         assert "知识问答助手" in result
 
 
-def test_load_assistant_agent_llm():
-    """从 settings 组装模型配置并交给 LanguageModelService，不真正连 OpenAI"""
+def test_load_assistant_agent_llm_requires_account():
+    """未指定账号时明确报错，不再回落到 YAML 默认模型。"""
     svc = MagicMock()
-    svc.load_language_model.return_value = MagicMock(name="llm")
-    llm = AssistantAgentService.load_assistant_agent_llm(svc)
-    assert llm is svc.load_language_model.return_value
-    config = svc.load_language_model.call_args[0][0]
-    assert config["provider"] == settings.ASSISTANT_AGENT_MODEL_PROVIDER
-    assert config["model"] == settings.ASSISTANT_AGENT_MODEL
-    assert config["parameters"]["temperature"] == settings.ASSISTANT_AGENT_TEMPERATURE
-    assert config["parameters"]["max_tokens"] == settings.ASSISTANT_AGENT_MAX_TOKENS
+    with pytest.raises(FailException):
+        AssistantAgentService.load_assistant_agent_llm(svc)
 
 
 def test_assistant_knowledge_tool_name():
@@ -92,20 +86,20 @@ def test_assistant_knowledge_tool_name():
 
     from app.services.assistant_knowledge_service import AssistantKnowledgeService
 
-    svc = AssistantKnowledgeService(client=MagicMock(), embeddings_service=MagicMock())
+    svc = AssistantKnowledgeService(client=MagicMock())
     svc.search = MagicMock(return_value=[])  # type: ignore[method-assign]
     tool = svc.convert_to_tool()
     assert isinstance(tool, BaseTool)
     assert tool.name == DATASET_RETRIEVAL_TOOL_NAME
     assert tool.invoke({"query": "LLMOps"}) == "知识库内没有检索到对应内容"
-    svc.search.assert_called_once_with("LLMOps", top_k=5)
+    svc.search.assert_called_once_with("LLMOps", top_k=5, account_id=None)
 
 
 def test_assistant_knowledge_seed_docs():
     """课程知识种子从 JSON 加载，不再依赖 FAISS 二进制索引"""
     from app.services.assistant_knowledge_service import AssistantKnowledgeService
 
-    svc = AssistantKnowledgeService(client=MagicMock(), embeddings_service=MagicMock())
+    svc = AssistantKnowledgeService(client=MagicMock())
     docs = svc._load_seed_docs()
     assert len(docs) == 260
     assert docs[0]["id"]

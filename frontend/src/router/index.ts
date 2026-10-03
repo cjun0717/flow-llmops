@@ -43,6 +43,11 @@ const router = createRouter({
               name: 'space-datasets-list',
               component: () => import('@/views/space/datasets/ListView.vue'),
             },
+            {
+              path: 'models',
+              name: 'space-models-list',
+              component: () => import('@/views/space/models/ListView.vue'),
+            },
           ],
         },
         {

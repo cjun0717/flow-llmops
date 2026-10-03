@@ -22,6 +22,7 @@ import { type CreateApiToolProviderRequest } from '@/models/api-tool'
 import { type CreateMcpToolProviderRequest } from '@/models/mcp-tool'
 import moment from 'moment/moment'
 import { typeMap } from '@/config'
+import { useAccountStore } from '@/stores/account'
 import { type FileItem, Form, type ValidatedError } from '@arco-design/web-vue'
 
 const route = useRoute()
@@ -29,6 +30,7 @@ const props = defineProps({
   createType: { type: String, required: true },
 })
 const emits = defineEmits(['update:create-type'])
+const accountStore = useAccountStore()
 
 const openApiForm = ref<{
   fileList: FileItem[]
@@ -353,7 +355,7 @@ watch(
               <icon-user />
             </a-avatar>
             <div class="text-xs text-gray-400">
-              慕小课 · 编辑时间
+              {{ accountStore.account.name }} · 编辑时间
               {{ moment((provider.updated_at || provider.created_at) * 1000).format('MM-DD HH:mm') }}
             </div>
           </div>

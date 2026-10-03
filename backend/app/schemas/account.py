@@ -60,7 +60,7 @@ class UpdatePasswordReq(BaseModel):
 class UpdateNameReq(BaseModel):
     """修改账号名称请求"""
 
-    name: str = Field(..., min_length=3, max_length=30, description="账号名称")
+    name: str = Field(..., min_length=3, max_length=30, description="登录用户名")
 
 
 class UpdateAvatarReq(BaseModel):

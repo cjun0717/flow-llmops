@@ -106,6 +106,10 @@ async def test_get_provider_icon(app):
         assert r.headers["content-type"].startswith("image/")
         assert len(r.content) > 0
 
+        r_alias = await client.get("/api/v1/builtin-tools/time/icon")
+        assert r_alias.status_code == 200
+        assert r_alias.content == r.content
+
 
 @pytest.mark.asyncio
 async def test_get_categories(app, auth_token):

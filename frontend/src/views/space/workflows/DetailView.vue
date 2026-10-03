@@ -77,8 +77,7 @@ const NODE_DATA_MAP: Record<string, any> = {
     description: '调用大语言模型，根据输入参数和提示词生成回复。',
     prompt: '',
     language_model_config: {
-      provider: 'openai',
-      model: 'gpt-4o-mini',
+      user_model_id: '',
       parameters: {
         frequency_penalty: 0.2,
         max_tokens: 8192,

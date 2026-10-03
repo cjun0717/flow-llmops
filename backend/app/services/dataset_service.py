@@ -56,12 +56,20 @@ class DatasetService:
         if not description or not description.strip():
             description = DEFAULT_DATASET_DESCRIPTION_FORMATTER.format(name=req.name)
 
+        from app.models.user_model import UserModelType
+        from app.services.user_model_service import UserModelService
+
+        embedding = await UserModelService.get_owned(req.embedding_model_id, account, db)
+        if embedding.model_type != UserModelType.EMBEDDING:
+            raise ValidateException("必须选择向量模型")
+
         # 3.创建记录
         dataset = Dataset(
             account_id=account.id,
             name=req.name,
             icon=req.icon,
             description=description,
+            embedding_model_id=embedding.id,
         )
         db.add(dataset)
         await db.commit()
@@ -192,6 +200,14 @@ class DatasetService:
         return r.scalar() or 0
 
     @staticmethod
+    async def _embedding_model_name(dataset: Dataset, db: AsyncSession) -> str:
+        if not dataset.embedding_model_id:
+            return ""
+        from app.models.user_model import UserModel
+        record = await db.get(UserModel, dataset.embedding_model_id)
+        return record.name if record else ""
+
+    @staticmethod
     async def _to_list_item(dataset: Dataset, db: AsyncSession) -> DatasetListItemData:
         return DatasetListItemData(
             id=dataset.id,
@@ -201,6 +217,8 @@ class DatasetService:
             document_count=await DatasetService._document_count(dataset.id, db),
             related_app_count=await DatasetService._related_app_count(dataset.id, db),
             character_count=await DatasetService._character_count(dataset.id, db),
+            embedding_model_id=dataset.embedding_model_id,
+            embedding_model_name=await DatasetService._embedding_model_name(dataset, db),
             updated_at=int(dataset.updated_at.timestamp()) if dataset.updated_at else 0,
             created_at=int(dataset.created_at.timestamp()) if dataset.created_at else 0,
         )
@@ -216,6 +234,8 @@ class DatasetService:
             hit_count=await DatasetService._hit_count(dataset.id, db),
             related_app_count=await DatasetService._related_app_count(dataset.id, db),
             character_count=await DatasetService._character_count(dataset.id, db),
+            embedding_model_id=dataset.embedding_model_id,
+            embedding_model_name=await DatasetService._embedding_model_name(dataset, db),
             updated_at=int(dataset.updated_at.timestamp()) if dataset.updated_at else 0,
             created_at=int(dataset.created_at.timestamp()) if dataset.created_at else 0,
         )

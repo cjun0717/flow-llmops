@@ -2,18 +2,19 @@
 # -*- coding: utf-8 -*-
 """问题分类器节点（迁移自 imooc question_classifier_node.py）。
 
-适配 FastAPI：使用项目默认语言模型（通过 lru_cache 单例访问器获取）替代硬编码 ChatOpenAI。
-作为 LangGraph 条件边函数，invoke 返回下一节点标识字符串。
+使用账号默认对话模型做分类，作为 LangGraph 条件边函数，invoke 返回下一节点标识字符串。
 """
 from __future__ import annotations
 
 import json
-from typing import Optional
+from typing import Any, Optional
+from uuid import UUID
 
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.runnables import RunnableConfig
 from langgraph.constants import END
+from pydantic import PrivateAttr
 
 from app.core.workflow.entities.workflow_entity import WorkflowState
 from app.core.workflow.nodes.base_node import BaseNode
@@ -27,6 +28,11 @@ from .question_classifier_entity import (
 class QuestionClassifierNode(BaseNode):
     """问题分类器节点"""
     node_data: QuestionClassifierNodeData
+    _account_id: UUID | None = PrivateAttr(None)
+
+    def __init__(self, *args: Any, account_id: UUID | None = None, **kwargs: Any):
+        super().__init__(*args, **kwargs)
+        self._account_id = account_id
 
     def invoke(self, state: WorkflowState, config: Optional[RunnableConfig] = None) -> str:
         """执行问题分类后返回下一节点标识，LLM 判断错误时默认返回第一个节点名称"""
@@ -39,12 +45,10 @@ class QuestionClassifierNode(BaseNode):
             ("human", "{query}"),
         ])
 
-        # 3.通过 lru_cache 单例访问器加载默认语言模型
-        from app.deps import get_language_model_manager
         from app.services.language_model_service import LanguageModelService
 
-        language_model_service = LanguageModelService(get_language_model_manager())
-        llm = language_model_service.load_default_language_model()
+        language_model_service = LanguageModelService()
+        llm = language_model_service.load_default_language_model(self._account_id)
 
         # 4.构建分类链
         chain = prompt | llm | StrOutputParser()

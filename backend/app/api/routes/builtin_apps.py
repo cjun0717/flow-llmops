@@ -3,7 +3,7 @@
 """内置应用广场路由（迁移自 imooc builtin_app_handler.py）。"""
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
 
 from app.api.deps import CurrentAccount
 from app.deps import AsyncSessionDep, BuiltinAppManagerDep
@@ -37,6 +37,16 @@ async def get_builtin_apps(
     """获取所有内置应用列表"""
     builtin_apps = BuiltinAppService.get_builtin_apps(manager)
     return ok([GetBuiltinAppsResp.from_entity(item) for item in builtin_apps])
+
+
+@router.get("/{builtin_app_id}/icon")
+async def get_builtin_app_icon(
+    builtin_app_id: str,
+    manager: BuiltinAppManagerDep,
+) -> Response:
+    """内置应用图标（无需登录，供 <img> 直接引用）"""
+    icon, mimetype = BuiltinAppService.get_builtin_app_icon(manager, builtin_app_id)
+    return Response(content=icon, media_type=mimetype)
 
 
 @router.post("/add-builtin-app-to-space", response_model=ApiResponse[AddBuiltinAppToSpaceData])

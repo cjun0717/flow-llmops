@@ -34,7 +34,6 @@ from app.schemas.segment import (
 from app.services.embeddings_service import EmbeddingsService
 from app.services.jieba_service import JiebaService
 from app.services.keyword_table_service import KeywordTableService
-from app.services.vector_database_service import VectorDatabaseService
 
 
 class SegmentService:
@@ -43,14 +42,19 @@ class SegmentService:
     def __init__(
         self,
         jieba_service: JiebaService,
-        embeddings_service: EmbeddingsService,
         keyword_table_service: KeywordTableService,
-        vector_database_service: VectorDatabaseService,
     ) -> None:
         self.jieba_service = jieba_service
-        self.embeddings_service = embeddings_service
         self.keyword_table_service = keyword_table_service
-        self.vector_database_service = vector_database_service
+
+    def _vector_stack(self, dataset_id: UUID):
+        from app.deps import get_milvus_client, get_sync_redis
+        from app.services.embedding_runtime import vector_stack_for_dataset_id
+
+        with SyncSessionLocal() as sync_db:
+            return vector_stack_for_dataset_id(
+                dataset_id, get_sync_redis(), get_milvus_client(), sync_db
+            )
 
     async def _get_document_owned(
         self, dataset_id: UUID, document_id: UUID, account: Account, db: AsyncSession
@@ -129,7 +133,8 @@ class SegmentService:
             await db.flush()
 
             # 5.写 Milvus
-            self.vector_database_service.add_documents(
+            embeddings, vdb = self._vector_stack(dataset_id)
+            vdb.add_documents(
                 [LCDocument(
                     page_content=req.content,
                     metadata={
@@ -225,8 +230,9 @@ class SegmentService:
                 await db.commit()
 
                 # 更新 Milvus text + vector
-                vector = self.embeddings_service.embeddings.embed_query(req.content)
-                self.vector_database_service.update_by_id(
+                embeddings, vdb = self._vector_stack(dataset_id)
+                vector = embeddings.embeddings.embed_query(req.content)
+                vdb.update_by_id(
                     str(segment.node_id),
                     {"text": req.content, "segment_id": str(segment.id), "document_id": str(document_id), "dataset_id": str(dataset_id)},
                     vector=vector,
@@ -358,7 +364,8 @@ class SegmentService:
                     self.keyword_table_service.delete_keyword_table_from_ids(dataset_id, [segment_id], sync_db)
 
             # 同步 Milvus segment_enabled
-            self.vector_database_service.update_by_id(
+            embeddings, vdb = self._vector_stack(dataset_id)
+            vdb.update_by_id(
                 str(segment.node_id),
                 {"segment_enabled": enabled},
             )
@@ -394,7 +401,8 @@ class SegmentService:
 
         # 删 Milvus
         try:
-            self.vector_database_service.delete_by_id(str(segment.node_id))
+            embeddings, vdb = self._vector_stack(dataset_id)
+            vdb.delete_by_id(str(segment.node_id))
         except Exception as e:
             logging.exception("删除片段向量失败, segment_id: %s, 错误: %s", segment_id, e)
 

@@ -32,10 +32,10 @@ class DatasetRetrievalNode(BaseNode):
         super().__init__(*args, **kwargs)
 
         # 1.通过 lru_cache 单例访问器构建检索服务
-        from app.deps import get_jieba_service, get_vector_database_service
+        from app.deps import get_jieba_service
         from app.services.retrieval_service import RetrievalService
 
-        retrieval_service = RetrievalService(get_jieba_service(), get_vector_database_service())
+        retrieval_service = RetrievalService(get_jieba_service())
 
         # 2.构建检索服务工具
         self._retrieval_tool = retrieval_service.create_langchain_tool_from_search(

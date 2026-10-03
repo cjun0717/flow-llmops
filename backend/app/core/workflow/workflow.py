@@ -195,7 +195,10 @@ class Workflow(BaseTool):
                 # 4.2 将虚拟起点和终点用条件边拼接
                 graph.add_conditional_edges(
                     node_flag,
-                    NodeClasses[NodeType.QUESTION_CLASSIFIER](node_data=node)
+                    NodeClasses[NodeType.QUESTION_CLASSIFIER](
+                        account_id=self._workflow_config.account_id,
+                        node_data=node,
+                    )
                 )
             elif node.node_type == NodeType.ITERATION:
                 graph.add_node(

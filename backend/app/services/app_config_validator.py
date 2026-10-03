@@ -12,17 +12,17 @@ from uuid import UUID
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.language_model.entities.model_entity import ModelParameterType
 from app.entities.audio_entity import ALLOWED_AUDIO_VOICES
 from app.entities.workflow_entity import WorkflowStatus
 from app.exceptions import ValidateException
-from app.lib.helper import get_value_type
 from app.models.account import Account
 from app.models.api_tool import ApiTool
 from app.models.dataset import Dataset
 from app.models.mcp_tool import McpTool
 from app.models.workflow import Workflow
+from app.models.user_model import UserModel, UserModelType
 from app.services.app_config_service import AppConfigService
+from app.services.user_model_service import sanitize_chat_parameters
 
 
 ACCEPTABLE_FIELDS = [
@@ -47,7 +47,7 @@ async def validate_draft_app_config(
     ):
         raise ValidateException("草稿配置字段出错，请核实后重试")
 
-    _validate_model_config(draft_app_config, app_config_service)
+    await _validate_model_config(draft_app_config, account, db)
     _validate_dialog_round(draft_app_config)
     _validate_preset_prompt(draft_app_config)
     await _validate_tools(draft_app_config, account, db, app_config_service)
@@ -65,47 +65,32 @@ async def validate_draft_app_config(
     return draft_app_config
 
 
-def _validate_model_config(
-    draft_app_config: dict, app_config_service: AppConfigService
+async def _validate_model_config(
+    draft_app_config: dict, account: Account, db: AsyncSession
 ) -> None:
     if "model_config" not in draft_app_config:
         return
     model_config = draft_app_config["model_config"]
     if not isinstance(model_config, dict):
         raise ValidateException("模型配置格式错误，请核实后重试")
-    if set(model_config.keys()) != {"provider", "model", "parameters"}:
+    if set(model_config.keys()) != {"user_model_id", "parameters"}:
         raise ValidateException("模型键配置格式错误，请核实后重试")
-    if not model_config["provider"] or not isinstance(model_config["provider"], str):
-        raise ValidateException("模型服务提供商类型必须为字符串")
-    try:
-        provider = app_config_service.language_model_manager.get_provider(model_config["provider"])
-    except Exception:
-        raise ValidateException("该模型服务提供商不存在，请核实后重试")
-    if not model_config["model"] or not isinstance(model_config["model"], str):
-        raise ValidateException("模型名字必须为字符串")
-    try:
-        model_entity = provider.get_model_entity(model_config["model"])
-    except Exception:
-        raise ValidateException("该服务提供商下不存在该模型，请核实后重试")
-
-    parameters = {}
-    for parameter in model_entity.parameters:
-        parameter_value = model_config["parameters"].get(parameter.name, parameter.default)
-        if parameter.required:
-            if parameter_value is None:
-                parameter_value = parameter.default
-            elif get_value_type(parameter_value) != parameter.type.value:
-                parameter_value = parameter.default
-        else:
-            if parameter_value is not None and get_value_type(parameter_value) != parameter.type.value:
-                parameter_value = parameter.default
-        if parameter.options and parameter_value not in parameter.options:
-            parameter_value = parameter.default
-        if parameter.type in [ModelParameterType.INT, ModelParameterType.FLOAT] and parameter_value is not None:
-            if (parameter.min and parameter_value < parameter.min) or (parameter.max and parameter_value > parameter.max):
-                parameter_value = parameter.default
-        parameters[parameter.name] = parameter_value
-    model_config["parameters"] = parameters
+    user_model_id = model_config.get("user_model_id") or ""
+    if user_model_id:
+        if not isinstance(user_model_id, str):
+            raise ValidateException("对话模型无效，请先在模型管理中添加")
+        try:
+            uid = UUID(user_model_id)
+        except Exception as exc:
+            raise ValidateException("对话模型无效，请先在模型管理中添加") from exc
+        record = await db.get(UserModel, uid)
+        if (
+            record is None
+            or record.account_id != account.id
+            or record.model_type != UserModelType.CHAT
+        ):
+            raise ValidateException("对话模型无效，请先在模型管理中添加")
+    model_config["parameters"] = sanitize_chat_parameters(model_config.get("parameters"))
     draft_app_config["model_config"] = model_config
 
 

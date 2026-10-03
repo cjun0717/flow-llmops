@@ -47,16 +47,18 @@ class WebAppService:
         return app
 
     @staticmethod
-    def _model_features(language_model_service, model_config: dict[str, Any]) -> list[str]:
-        """从模型实体读取特性，避免仅为 features 去实例化 LLM 客户端"""
-        provider = model_config.get("provider") or "openai"
-        model_name = model_config.get("model") or "gpt-4o-mini"
+    async def _model_features(model_config: dict[str, Any], db: AsyncSession) -> list[str]:
+        """从用户模型记录读取特性。"""
+        from app.models.user_model import UserModel
+
+        uid = (model_config or {}).get("user_model_id") or ""
+        if not uid:
+            return []
         try:
-            entity = language_model_service.get_language_model(provider, model_name)
-            features = entity.get("features") or []
-            return [f.value if hasattr(f, "value") else str(f) for f in features]
+            record = await db.get(UserModel, UUID(str(uid)))
         except Exception:
             return []
+        return [str(f) for f in (record.features or [])] if record else []
 
     @staticmethod
     async def get_web_app_info(
@@ -68,8 +70,8 @@ class WebAppService:
         """根据传递的 token 获取 WebApp 基础信息"""
         app = await WebAppService.get_web_app(token, db)
         app_config = await app_config_service.get_app_config(app, db)
-        features = WebAppService._model_features(
-            language_model_service, app_config.get("model_config") or {}
+        features = await WebAppService._model_features(
+            app_config.get("model_config") or {}, db
         )
         return WebAppInfoData(
             id=app.id,

@@ -72,6 +72,8 @@ def test_list_resp_only_exposes_provider_and_model(manager: BuiltinAppManager):
     assert dumped["model_config"] == {"provider": "openai", "model": "gpt-4o-mini"}
     assert "parameters" not in dumped["model_config"]
     assert dumped["name"] == "旅游助手"
+    assert "/builtin-apps/" in dumped["icon"]
+    assert dumped["icon"].endswith("/icon")
 
 
 def test_add_builtin_app_req_invalid_uuid():
@@ -194,7 +196,7 @@ async def test_add_builtin_app_http_success(app, auth_token):
         draft = await client.get(f"/api/v1/apps/{app_id}/draft-app-config", headers=headers)
         assert draft.status_code == 200
         draft_data = draft.json()["data"]
-        assert draft_data["model_config"]["provider"] == "openai"
+        assert "user_model_id" in draft_data["model_config"]
         assert draft_data["long_term_memory"]["enable"] is True
         assert draft_data["opening_statement"].startswith("我是一个高级产品经理")
 

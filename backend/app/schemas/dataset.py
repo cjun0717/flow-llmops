@@ -22,6 +22,7 @@ class CreateDatasetReq(BaseModel):
     name: str = Field(..., min_length=1, max_length=100, description="知识库名称")
     icon: str = Field(..., min_length=1, description="知识库图标URL")
     description: str = Field("", max_length=2000, description="知识库描述")
+    embedding_model_id: UUID = Field(..., description="绑定的向量模型 ID")
 
 
 class UpdateDatasetReq(BaseModel):
@@ -45,6 +46,8 @@ class DatasetListItemData(BaseModel):
     document_count: int = 0
     related_app_count: int = 0
     character_count: int = 0
+    embedding_model_id: UUID | None = None
+    embedding_model_name: str = ""
     updated_at: int = 0
     created_at: int = 0
 
@@ -59,6 +62,8 @@ class DatasetDetailData(BaseModel):
     hit_count: int = 0
     related_app_count: int = 0
     character_count: int = 0
+    embedding_model_id: UUID | None = None
+    embedding_model_name: str = ""
     updated_at: int = 0
     created_at: int = 0
 

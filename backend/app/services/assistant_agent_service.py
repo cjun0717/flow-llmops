@@ -64,17 +64,28 @@ class AssistantAgentService:
         return conversation
 
     @staticmethod
-    def load_assistant_agent_llm(language_model_service):
-        """加载辅助 Agent 模型，避免把首页助手绑定到单一供应商。"""
-        model_config = {
-            "provider": settings.ASSISTANT_AGENT_MODEL_PROVIDER,
-            "model": settings.ASSISTANT_AGENT_MODEL,
-            "parameters": {
+    def load_assistant_agent_llm(language_model_service, account_id=None):
+        """加载当前账号的默认对话模型。"""
+        from app.db import SyncSessionLocal
+        from app.exceptions import FailException
+        from app.models.user_model import UserModelType
+        from app.services.user_model_service import (
+            UserModelService,
+            build_chat_model,
+            sanitize_chat_parameters,
+        )
+
+        if account_id is None:
+            raise FailException("请先在模型管理中添加对话模型")
+        with SyncSessionLocal() as db:
+            record = UserModelService.get_default_sync(account_id, UserModelType.CHAT, db)
+            if record is None:
+                raise FailException("请先在模型管理中添加对话模型")
+            parameters = sanitize_chat_parameters({
                 "temperature": settings.ASSISTANT_AGENT_TEMPERATURE,
                 "max_tokens": settings.ASSISTANT_AGENT_MAX_TOKENS,
-            },
-        }
-        return language_model_service.load_language_model(model_config)
+            })
+            return build_chat_model(record, parameters)
 
     @staticmethod
     async def chat(
@@ -104,7 +115,9 @@ class AssistantAgentService:
             db.add(message)
             await db.flush()
 
-            llm = AssistantAgentService.load_assistant_agent_llm(language_model_service)
+            llm = AssistantAgentService.load_assistant_agent_llm(
+                language_model_service, account.id
+            )
 
             token_buffer_memory = TokenBufferMemory(
                 db=db,
@@ -114,7 +127,7 @@ class AssistantAgentService:
             history = await token_buffer_memory.get_history_prompt_messages(message_limit=3)
 
             tools = [
-                knowledge_service.convert_to_tool(),
+                knowledge_service.convert_to_tool(account.id),
                 AssistantAgentService.convert_create_app_to_tool(account.id),
             ]
 

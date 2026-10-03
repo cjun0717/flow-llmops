@@ -13,6 +13,7 @@ class Account(BaseModel):
     __table_args__ = (
         PrimaryKeyConstraint("id", name="pk_account_id"),
         Index("account_email_idx", "email"),
+        Index("account_name_idx", "name", unique=True),
         {'comment': '账号模型表'}
     )
 
@@ -20,7 +21,7 @@ class Account(BaseModel):
         String(255),
         nullable=False,
         server_default=text("''::character varying"),
-        comment="账号名称"
+        comment="登录用户名"
     )
     email: Mapped[str] = mapped_column(
         String(255),

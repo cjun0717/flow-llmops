@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""文本嵌入模型服务（OpenAI + Redis 缓存）。
+"""文本嵌入模型服务（OpenAI 兼容 + Redis 缓存）。
 
-迁移自 imooc internal/service/embeddings_service.py。
+凭证与模型名来自用户在前端添加的向量模型，不再读取环境变量。
 """
 from __future__ import annotations
 
@@ -13,24 +13,31 @@ from langchain_core.embeddings import Embeddings
 from langchain_openai import OpenAIEmbeddings
 from redis import Redis
 
-from app.config import settings
-
 
 class EmbeddingsService:
     """文本嵌入模型服务"""
 
-    def __init__(self, redis: Redis) -> None:
-        self._store = RedisStore(client=redis)
-        self._embeddings = OpenAIEmbeddings(
-            model=settings.OPENAI_EMBEDDING_MODEL,
-            api_key=settings.OPENAI_EMBEDDING_API_KEY,
-            base_url=settings.OPENAI_EMBEDDING_BASE_URL,
+    @classmethod
+    def from_user_model(cls, record, redis: Redis | None = None) -> "EmbeddingsService":
+        """按用户向量模型构造实例；redis 为空时不启用缓存（连通性探测）。"""
+        inst = object.__new__(cls)
+        inst._embeddings = OpenAIEmbeddings(
+            model=record.model_serve_name,
+            api_key=record.api_key or "EMPTY",
+            base_url=record.base_url or None,
+            check_embedding_ctx_length=False,
         )
-        self._cache_backed_embeddings = CacheBackedEmbeddings.from_bytes_store(
-            self._embeddings,
-            self._store,
-            namespace="embeddings",
+        if redis is None:
+            inst._store = None
+            inst._cache_backed_embeddings = inst._embeddings
+            return inst
+        inst._store = RedisStore(client=redis)
+        inst._cache_backed_embeddings = CacheBackedEmbeddings.from_bytes_store(
+            inst._embeddings,
+            inst._store,
+            namespace=f"embeddings:{record.id}",
         )
+        return inst
 
     @classmethod
     def calculate_token_count(cls, query: str) -> int:
@@ -39,7 +46,7 @@ class EmbeddingsService:
         return len(encoding.encode(query))
 
     @property
-    def store(self) -> RedisStore:
+    def store(self) -> RedisStore | None:
         return self._store
 
     @property
@@ -48,6 +55,6 @@ class EmbeddingsService:
         return self._embeddings
 
     @property
-    def cache_backed_embeddings(self) -> CacheBackedEmbeddings:
+    def cache_backed_embeddings(self) -> Embeddings:
         """缓存版 embedding（写入向量库时用）"""
         return self._cache_backed_embeddings

@@ -60,10 +60,12 @@ class IndexingService:
         self.minio_client = _minio_client()
         self.file_extractor = FileExtractor(self.minio_client)
         self.jieba_service = JiebaService()
-        self.embeddings_service = EmbeddingsService(self.redis_client)
         self.keyword_table_service = KeywordTableService(self.redis_client)
-        self.vector_database_service = VectorDatabaseService(
-            _milvus_client(), self.embeddings_service
+
+    def _vector_stack(self, dataset_id: UUID, db: Session):
+        from app.services.embedding_runtime import vector_stack_for_dataset_id
+        return vector_stack_for_dataset_id(
+            dataset_id, self.redis_client, _milvus_client(), db
         )
 
     # ===== build_documents（5a 完整实现）=====
@@ -225,7 +227,8 @@ class IndexingService:
             for i in range(0, len(lc_segments), 10):
                 chunks = lc_segments[i:i + 10]
                 ids = [chunk.metadata["node_id"] for chunk in chunks]
-                self.vector_database_service.add_documents(chunks, ids=ids)
+                _, vdb = self._vector_stack(document.dataset_id, db)
+                vdb.add_documents(chunks, ids=ids)
                 db.execute(
                     sa_update(Segment).where(Segment.node_id.in_(ids)).values(
                         status=SegmentStatus.COMPLETED,
@@ -286,9 +289,10 @@ class IndexingService:
                 node_ids = [str(row[1]) for row in seg_rows]
 
                 # 2.逐个更新 Milvus document_enabled，单 node 失败标记该 Segment ERROR
+                _, vdb = self._vector_stack(document.dataset_id, db)
                 for seg_id, node_id, _enabled in seg_rows:
                     try:
-                        self.vector_database_service.update_by_id(
+                        vdb.update_by_id(
                             str(node_id),
                             {"document_enabled": document.enabled},
                         )
@@ -354,7 +358,8 @@ class IndexingService:
 
             # 2.删 Milvus（按 document_id）
             try:
-                self.vector_database_service.delete_by_document_id(str(document_id))
+                _, vdb = self._vector_stack(dataset_id, db)
+                vdb.delete_by_document_id(str(document_id))
             except Exception as e:
                 logging.exception("删除文档向量失败, document_id: %s, 错误: %s", document_id, e)
 
@@ -382,9 +387,11 @@ class IndexingService:
                 db.execute(sa_delete(DatasetQuery).where(DatasetQuery.dataset_id == dataset_id))
                 db.commit()
 
-            # 删 Milvus（按 dataset_id）
+            # 删 Milvus（按 dataset_id，覆盖所有维度 collection）
             try:
-                self.vector_database_service.delete_by_dataset_id(str(dataset_id))
+                VectorDatabaseService.delete_dataset_from_all_collections(
+                    _milvus_client(), str(dataset_id)
+                )
             except Exception as e:
                 logging.exception("删除知识库向量失败, dataset_id: %s, 错误: %s", dataset_id, e)
         except Exception as e:

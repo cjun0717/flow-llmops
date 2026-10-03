@@ -77,13 +77,32 @@ async def test_phase7_app_config_flow(app, auth_token):
         body = r.json()
         assert body["code"] == "success", body
         draft = body["data"]
-        assert draft["model_config"]["provider"] == "openai"
-        assert draft["model_config"]["model"] == "gpt-4o-mini"
+        assert "user_model_id" in draft["model_config"]
+        assert "parameters" in draft["model_config"]
         assert draft["dialog_round"] == 3
         assert draft["opening_statement"] == ""
         assert draft["tools"] == []
         assert draft["workflows"] == []
         assert draft["datasets"] == []
+
+        chat_payload = {
+            "name": "阶段7对话模型",
+            "model_type": "chat",
+            "base_url": "https://api.example.com/v1",
+            "api_key": "sk-test",
+            "model_serve_name": "demo-chat",
+            "context_window": 128000,
+            "verify": False,
+        }
+        r = await client.post("/api/v1/user-models", headers=headers, json=chat_payload)
+        assert r.json()["code"] == "success", r.text
+        chat_id = r.json()["data"]["id"]
+        r = await client.post(
+            f"/api/v1/apps/{app_id}/draft-app-config",
+            headers=headers,
+            json={"model_config": {"user_model_id": chat_id, "parameters": {"temperature": 0.5}}},
+        )
+        assert r.json()["code"] == "success", r.text
 
         # 3. 更新草稿配置（简单字段：preset_prompt + dialog_round + opening_statement）
         r = await client.post(
@@ -216,18 +235,17 @@ async def test_phase7_update_draft_validate_error(app, auth_token):
         r = await client.post(
             f"/api/v1/apps/{app_id}/draft-app-config",
             headers=headers,
-            json={"model_config": {"provider": "openai"}},
+            json={"model_config": {"user_model_id": ""}},
         )
         assert r.json()["code"] == "validate_error"
 
-        # 不存在的 provider
+        # 不存在的对话模型
         r = await client.post(
             f"/api/v1/apps/{app_id}/draft-app-config",
             headers=headers,
             json={
                 "model_config": {
-                    "provider": "not_exist_provider",
-                    "model": "xxx",
+                    "user_model_id": "00000000-0000-0000-0000-000000000001",
                     "parameters": {},
                 }
             },

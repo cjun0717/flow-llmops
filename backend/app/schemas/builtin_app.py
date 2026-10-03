@@ -7,6 +7,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.config import settings
 from app.core.builtin_apps.entities.builtin_app_entity import BuiltinAppEntity
 from app.core.builtin_apps.entities.category_entity import CategoryEntity
 
@@ -39,7 +40,7 @@ class GetBuiltinAppsResp(BaseModel):
             id=data.id,
             category=data.category,
             name=data.name,
-            icon=data.icon,
+            icon=f"{settings.SERVICE_API_PREFIX.rstrip('/')}/builtin-apps/{data.id}/icon",
             description=data.description,
             model_config_data={
                 "provider": data.language_model_config.get("provider", ""),

@@ -76,7 +76,8 @@ onMounted(() => {
       <a-row :gutter="[20, 20]" class="flex-1">
         <!-- 有数据的UI状态 -->
         <a-col v-for="(builtinTool, idx) in filterBuiltinTools" :key="builtinTool.name" :span="6">
-          <a-card hoverable class="cursor-pointer rounded-lg" @click="showIdx = idx">
+          <div class="cursor-pointer" @click="showIdx = idx">
+          <a-card hoverable class="rounded-lg">
             <!-- 顶部提供商名称 -->
             <div class="flex items-center gap-3 mb-3">
               <!-- 左侧图标 -->
@@ -108,11 +109,12 @@ onMounted(() => {
                 <icon-user />
               </a-avatar>
               <div class="text-xs text-gray-400">
-                慕课 · 发布时间
+                Flow · 发布时间
                 {{ moment(builtinTool.created_at * 1000).format('MM-DD HH:mm') }}
               </div>
             </div>
           </a-card>
+          </div>
         </a-col>
         <!-- 没数据的UI状态 -->
         <a-col v-if="filterBuiltinTools.length === 0" :span="24">
