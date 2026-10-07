@@ -245,35 +245,35 @@ services:
     restart: always
     logging: *default-logging
   
-  # neo4j 组件
-  neo4j:
-    image: neo4j:2025.06.0
-    container_name: cj-neo4j
-    env_file:
-      - .env
-    environment:
-      - NEO4J_AUTH=${NEO4J_AUTH:-neo4j/chenjun1234}
-      - NEO4J_apoc_export_file_enabled=true
-      - NEO4J_apoc_import_file_enabled=true
-      - NEO4J_apoc_import_file_use__neo4j__config=true
-    ports:
-      - ${HTTP_PORT}:7474
-      - ${BOLT_PORT}:7687
-    volumes:
-      - neo4j_data:/data
-      - neo4j_logs:/logs
-      - neo4j_import:/import
-      - ./resources:/plugins
-    networks:
-      - cj-network
-    healthcheck:
-      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "${GRAPHDB_PASSWORD}", "RETURN 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    restart: always
-    logging: *default-logging
+  # neo4j 组件（当前未使用，已注释）
+  # neo4j:
+  #   image: neo4j:2025.06.0
+  #   container_name: cj-neo4j
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     - NEO4J_AUTH=${NEO4J_AUTH:-neo4j/chenjun1234}
+  #     - NEO4J_apoc_export_file_enabled=true
+  #     - NEO4J_apoc_import_file_enabled=true
+  #     - NEO4J_apoc_import_file_use__neo4j__config=true
+  #   ports:
+  #     - ${HTTP_PORT}:7474
+  #     - ${BOLT_PORT}:7687
+  #   volumes:
+  #     - neo4j_data:/data
+  #     - neo4j_logs:/logs
+  #     - neo4j_import:/import
+  #     - ./resources:/plugins
+  #   networks:
+  #     - cj-network
+  #   healthcheck:
+  #     test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "${GRAPHDB_PASSWORD}", "RETURN 1"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+  #     start_period: 10s
+  #   restart: always
+  #   logging: *default-logging
 
 
 volumes:
@@ -291,12 +291,12 @@ volumes:
     driver: local
   milvus_data:
     driver: local
-  neo4j_data:
-    driver: local
-  neo4j_logs:
-    driver: local
-  neo4j_import:
-    driver: local
+  # neo4j_data:
+  #   driver: local
+  # neo4j_logs:
+  #   driver: local
+  # neo4j_import:
+  #   driver: local
 
   
 networks:
