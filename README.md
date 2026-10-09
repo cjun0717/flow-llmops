@@ -11,7 +11,7 @@
 [![Docker](assets/badges/docker.svg)](https://docker.com)
 [![License](assets/badges/license.svg)](LICENSE)
 
-**FastAPI + Vue3 重构的开源 LLMOps 平台 · Agent 应用 · 拖拽式工作流 · 知识库 RAG · MCP 工具生态**
+**FastAPI + Vue3 打造的开源 LLMOps 平台 · Agent 应用 · 拖拽式工作流 · 知识库 RAG · MCP 工具生态**
 
 [快速开始](#-5-分钟快速开始docker-部署) · [技术架构](#-技术架构) · [模型管理](#-模型管理) · [工作流节点](#-工作流节点有哪些类型) · [工具生态](#-工具生态) · [常见问题](#-常见问题)
 
@@ -21,7 +21,7 @@
 
 ## Flow-LLMOps 是什么？
 
-Flow-LLMOps 是一个**开箱即用的 LLMOps 平台**，参考 [imooc-llmops](resources/imooc-llmops/README.md)（Flask 版）的业务设计，使用 **FastAPI + Vue 3** 全栈重构。核心能力：Agent 应用调试与发布、拖拽式工作流编辑器、知识库 RAG、多模型管理、内置/API/MCP 工具生态、数据分析与全链路可观测。
+Flow-LLMOps 是一个**开箱即用的 LLMOps 平台**，基于 **FastAPI + Vue 3** 全栈构建。核心能力：Agent 应用调试与发布、拖拽式工作流编辑器、知识库 RAG、多模型管理、内置/API/MCP 工具生态、数据分析与全链路可观测。
 
 **适合这些人群：**
 
@@ -302,9 +302,9 @@ flow-llmops/
 │
 ├── docker/
 │   ├── docker-compose.yaml     # 基础设施 + flow-api/flow-celery/flow-web
-│   └── .env                    # 全部环境变量
+│   ├── .env.example            # 环境变量模板（提交入库）
+│   └── .env                    # 真实凭证，.gitignore 排除
 │
-├── resources/imooc-llmops/     # 原版 Flask 参考项目（只读）
 └── README.md
 ```
 
@@ -430,7 +430,7 @@ MIT License，见 [LICENSE](LICENSE)。
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
   "name": "Flow-LLMOps",
-  "description": "FastAPI + Vue3 重构的开源 LLMOps 平台：Agent 应用、拖拽式工作流、知识库 RAG、MCP 工具生态、数据分析与 Langfuse 可观测。",
+  "description": "FastAPI + Vue3 打造的开源 LLMOps 平台：Agent 应用、拖拽式工作流、知识库 RAG、MCP 工具生态、数据分析与 Langfuse 可观测。",
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "Linux, macOS, Windows",
   "offers": {
@@ -439,7 +439,23 @@ MIT License，见 [LICENSE](LICENSE)。
     "priceCurrency": "USD"
   },
   "programmingLanguage": ["Python", "TypeScript"],
-  "license": "https://opensource.org/licenses/MIT"
+  "license": "https://opensource.org/licenses/MIT",
+  "keywords": [
+    "LLMOps",
+    "AI Agent",
+    "Agent Platform",
+    "FastAPI",
+    "Vue3",
+    "LangChain",
+    "LangGraph",
+    "RAG",
+    "知识库问答",
+    "工作流编排",
+    "MCP",
+    "Milvus",
+    "Dify Alternative",
+    "Self-Hosted"
+  ]
 }
 </script>
 
