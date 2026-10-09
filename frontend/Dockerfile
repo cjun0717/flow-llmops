@@ -1,38 +1,28 @@
-# 使用官方 Node.js 镜像作为基础镜像
-FROM node:20 as builder
+# ===== Flow LLMOps 前端镜像（不使用 nginx，构建产物由 serve 提供静态服务）=====
 
-# 设置工作目录
+# 一阶段：构建 Vue 静态产物
+FROM node:20-alpine AS builder
+
 WORKDIR /app/web
 
-# 将 package.json 和 yarn.lock 拷贝到镜像内
-COPY package.json .
-COPY yarn.lock .
+# 先拷贝依赖清单，充分利用构建缓存
+COPY package.json yarn.lock ./
+RUN yarn install --frozen-lockfile
 
-# 使用 yarn 安装依赖
-RUN yarn install
-
-# 将项目代码拷贝到容器中
+# 拷贝项目代码并构建
+# VITE_API_PREFIX 取 .env.production（默认 http://localhost:8001/api/v1），
+# 浏览器直连后端，跨域由后端 CORS 处理
 COPY . .
-
-# 配置环境变量
-ENV VITE_API_PREFIX=/api
-
-# 构建/编译项目
 RUN yarn build
 
-# 二阶段使用 Nginx 来部署 Vue 静态页面
-FROM nginx:alpine as production
-COPY --from=builder /app/web/dist /usr/share/nginx/html
-COPY --from=builder /app/web/docker/nginx/nginx.conf /etc/nginx/conf.d/default.conf
+# 二阶段：用 serve 提供静态文件（-s 开启 SPA 回退到 index.html）
+FROM node:20-alpine
 
-# 设置目录权限为 755，确保 Nginx 可以访问目录
-RUN find /usr/share/nginx/html -type d -exec chmod 755 {} \;
+WORKDIR /app
+RUN yarn global add serve@14
 
-# 设置文件权限为 644，确保文件可以读但不可执行
-RUN find /usr/share/nginx/html -type f -exec chmod 644 {} \;
+COPY --from=builder /app/web/dist ./dist
 
-# 暴露 3000 端口号
 EXPOSE 3000
 
-# 启动 Nginx
-CMD ["nginx", "-g", "daemon off;"]
+CMD ["serve", "-s", "dist", "-l", "3000"]

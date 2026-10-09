@@ -164,6 +164,29 @@ const handleSubmit = async () => {
         messages.value[0].answer += data?.thought
         messages.value[0].latency = data?.latency
         messages.value[0].total_token_count = data?.total_token_count
+      } else if (event === QueueEvent.agentThought) {
+        // 5.14.1 思考模型的思考内容流式输出，按事件id叠加成一条推理记录
+        const agent_thought_idx = agent_thoughts.findIndex((item) => item?.id === event_id)
+        if (agent_thought_idx === -1) {
+          position += 1
+          agent_thoughts.push({
+            id: event_id,
+            position: position,
+            event: data?.event,
+            thought: data?.thought,
+            observation: data?.observation,
+            tool: data?.tool,
+            tool_input: data?.tool_input,
+            latency: data?.latency,
+            created_at: 0,
+          })
+        } else {
+          agent_thoughts[agent_thought_idx] = {
+            ...agent_thoughts[agent_thought_idx],
+            thought: (agent_thoughts[agent_thought_idx]?.thought || '') + (data?.thought || ''),
+            latency: data?.latency,
+          }
+        }
       } else if (event === QueueEvent.error) {
         // 5.15 事件为error，将错误信息(observation)填充到消息答案中进行展示
         messages.value[0].answer = data?.observation

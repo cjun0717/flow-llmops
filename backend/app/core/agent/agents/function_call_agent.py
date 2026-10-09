@@ -171,6 +171,8 @@ class FunctionCallAgent(BaseAgent):
         gathered = None
         is_first_chunk = True
         generation_type = ""
+        usage_metadata = None
+        thought_id = uuid.uuid4()
         try:
             for chunk in llm.stream(state["messages"]):
                 if is_first_chunk:
@@ -179,16 +181,31 @@ class FunctionCallAgent(BaseAgent):
                 else:
                     gathered += chunk
 
-                # 5.检测生成类型是工具参数还是文本生成
+                # 5.记录服务端返回的真实token用量（开启stream_usage时才存在）
+                if chunk.usage_metadata:
+                    usage_metadata = chunk.usage_metadata
+
+                # 6.检测思考模型输出的思考内容，推送为智能体推理事件（对应模型的深度思考能力）
+                reasoning_content = (chunk.additional_kwargs or {}).get("reasoning_content") or ""
+                if reasoning_content and ModelFeature.AGENT_THOUGHT in self.llm.features:
+                    self.agent_queue_manager.publish(state["task_id"], AgentThought(
+                        id=thought_id,
+                        task_id=state["task_id"],
+                        event=QueueEvent.AGENT_THOUGHT,
+                        thought=reasoning_content,
+                        latency=(time.perf_counter() - start_at),
+                    ))
+
+                # 7.检测生成类型是工具参数还是文本生成
                 if not generation_type:
                     if chunk.tool_calls:
                         generation_type = "thought"
                     elif chunk.content:
                         generation_type = "message"
 
-                # 6.如果生成的是消息则提交智能体消息事件
+                # 8.如果生成的是消息则提交智能体消息事件
                 if generation_type == "message":
-                    # 7.提取片段内容并检测是否开启输出审核
+                    # 9.提取片段内容并检测是否开启输出审核
                     review_config = self.agent_config.review_config
                     content = chunk.content
                     if review_config["enable"] and review_config["outputs_config"]["enable"]:
@@ -215,9 +232,13 @@ class FunctionCallAgent(BaseAgent):
             )
             raise e
 
-        # 8.计算LLM的输入+输出token总数
-        input_token_count = self.llm.get_num_tokens_from_messages(state["messages"])
-        output_token_count = self.llm.get_num_tokens_from_messages([gathered])
+        # 8.计算LLM的输入+输出token总数，优先使用服务端返回的真实用量，否则本地估算
+        if usage_metadata:
+            input_token_count = usage_metadata.get("input_tokens", 0)
+            output_token_count = usage_metadata.get("output_tokens", 0)
+        else:
+            input_token_count = self.llm.get_num_tokens_from_messages(state["messages"])
+            output_token_count = self.llm.get_num_tokens_from_messages([gathered])
 
         # 9.获取输入/输出价格和单位
         input_price, output_price, unit = self.llm.get_pricing()
@@ -226,7 +247,11 @@ class FunctionCallAgent(BaseAgent):
         total_token_count = input_token_count + output_token_count
         total_price = (input_token_count * input_price + output_token_count * output_price) * unit
 
-        # 11.如果类型为推理则添加智能体推理事件
+        # 11.如果流式输出无法识别生成类型（如思考模型未返回content），则按文本生成处理，确保流能够正常关闭
+        if not generation_type:
+            generation_type = "message"
+
+        # 12.如果类型为推理则添加智能体推理事件
         if generation_type == "thought":
             self.agent_queue_manager.publish(state["task_id"], AgentThought(
                 id=id,
@@ -249,7 +274,7 @@ class FunctionCallAgent(BaseAgent):
                 latency=(time.perf_counter() - start_at),
             ))
         elif generation_type == "message":
-            # 7.如果LLM直接生成answer则表示已经拿到了最终答案，推送一条空内容用于计算总token+总成本，并停止监听
+            # 13.如果LLM直接生成answer则表示已经拿到了最终答案，推送一条空内容用于计算总token+总成本，并停止监听
             self.agent_queue_manager.publish(state["task_id"], AgentThought(
                 id=id,
                 task_id=state["task_id"],

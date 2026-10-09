@@ -8,7 +8,7 @@ from pydantic import (
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # backend/app/config.py -> repo root -> docker/.env
-_ENV_FILE = Path(__file__).resolve().parents[2] / "docker" / ".env.development"
+_ENV_FILE = Path(__file__).resolve().parents[2] / "docker" / ".env"
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(

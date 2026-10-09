@@ -16,7 +16,7 @@ const kToTokens = (k: number | null | undefined) => {
 }
 
 const tokensToK = (tokens: number | null | undefined) => {
-  if (tokens == null || Number.isNaN(Number(tokens))) return null
+  if (tokens == null || Number.isNaN(Number(tokens))) return undefined
   return Number(tokens) / 1000
 }
 
@@ -51,9 +51,9 @@ export const useCreateOrUpdateUserModel = () => {
     base_url: '',
     api_key: '',
     model_serve_name: '',
-    context_window: 128 as number | null,
-    max_length: null as number | null,
-    dimension: null as number | null,
+    context_window: 128 as number | undefined,
+    max_length: undefined as number | undefined,
+    dimension: undefined as number | undefined,
     features: [] as string[],
     is_default: false,
     verify: false,
@@ -77,8 +77,8 @@ export const useCreateOrUpdateUserModel = () => {
       api_key: '',
       model_serve_name: item.model_serve_name,
       context_window: tokensToK(item.context_window),
-      max_length: item.max_length,
-      dimension: item.dimension,
+      max_length: item.max_length ?? undefined,
+      dimension: item.dimension ?? undefined,
       features: [...(item.features || [])],
       is_default: item.is_default,
       verify: false,

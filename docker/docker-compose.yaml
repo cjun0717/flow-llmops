@@ -33,6 +33,8 @@ services:
   minio:
     image: cgr.dev/chainguard/minio:latest
     container_name: cj-minio
+    # chainguard 新版镜像默认以非 root 用户运行，mkdir /data 会 Permission denied，显式以 root 运行
+    user: "0:0"
     env_file:
       - .env
     environment:
@@ -274,6 +276,91 @@ services:
   #     start_period: 10s
   #   restart: always
   #   logging: *default-logging
+  # ===== Flow LLMOps 应用服务（web / api / celery 三个容器，api 与 celery 共用同一镜像）=====
+
+  # 后端 API 服务（镜像需先用 backend/build.sh 预先构建）
+  flow-api:
+    image: flow-llmops-api:latest
+    container_name: cj-flow-api
+    env_file:
+      - .env
+    environment:
+      # 容器内通过服务名访问基础设施（覆盖 .env 里的 localhost）
+      REDIS_HOST: redis
+      POSTGRES_HOST: postgres
+      MINIO_HOST: minio
+      # 返回给浏览器的文件 URL 必须走宿主机映射端口
+      MINIO_DOMAIN: http://localhost:${MINIO_PORT}
+      MILVUS_HOST: standalone
+      LANGFUSE_HOST: http://langfuse-web:3000
+      APP_RELOAD: "false"
+      DB_ECHO: "false"
+    ports:
+      - "8001:8001"
+    networks:
+      - cj-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      standalone:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8001/ping', timeout=5)\""]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    restart: always
+    logging: *default-logging
+
+  # Celery 异步任务（文档索引/删除、辅助Agent自动建应用），与 api 共用镜像
+  flow-celery:
+    image: flow-llmops-api:latest
+    container_name: cj-flow-celery
+    env_file:
+      - .env
+    environment:
+      REDIS_HOST: redis
+      POSTGRES_HOST: postgres
+      MINIO_HOST: minio
+      MINIO_DOMAIN: http://localhost:${MINIO_PORT}
+      MILVUS_HOST: standalone
+      LANGFUSE_HOST: http://langfuse-web:3000
+      APP_RELOAD: "false"
+      DB_ECHO: "false"
+    command: ["celery", "-A", "app.tasks.celery_app", "worker", "--loglevel=info"]
+    networks:
+      - cj-network
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      standalone:
+        condition: service_healthy
+    restart: always
+    logging: *default-logging
+
+  # 前端静态页面（镜像需先用 frontend/build.sh 预先构建；serve 提供静态服务，浏览器直连 flow-api，跨域由后端 CORS 处理）
+  flow-web:
+    image: flow-llmops-web:latest
+    container_name: cj-flow-web
+    # 宿主机 3000 被 langfuse-web 占用，前端走 8080
+    ports:
+      - "8080:3000"
+    networks:
+      - cj-network
+    depends_on:
+      flow-api:
+        condition: service_healthy
+    restart: always
+    logging: *default-logging
 
 
 volumes:

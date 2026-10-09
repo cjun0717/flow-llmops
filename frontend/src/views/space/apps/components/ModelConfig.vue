@@ -31,7 +31,7 @@ const selectedModel = computed(() =>
   user_models.value.find((item) => item.id === form.value.selectValue),
 )
 
-const changeModel = (value: string) => {
+const changeModel = (value: string | number | boolean | Record<string, any> | (string | number | boolean | Record<string, any>)[]) => {
   const item = user_models.value.find((model) => model.id === value)
   form.value.parameters = { ...DEFAULT_CHAT_PARAMETERS, ...(item?.parameters || {}) }
 }

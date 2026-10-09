@@ -8,6 +8,7 @@ Redis 同步客户端由外部注入（Agent 在子线程中运行，需同步 R
 from __future__ import annotations
 
 import uuid
+import logging
 from abc import abstractmethod
 from threading import Thread
 from typing import Any, Iterator, Optional
@@ -110,6 +111,20 @@ class BaseAgent:
 
         return agent_result
 
+    def _invoke_agent(self, input: AgentState) -> None:
+        """在子线程中执行LangGraph，任何异常都发布错误事件，确保SSE流能够正常关闭"""
+        try:
+            self._agent.invoke(input)
+        except Exception as error:
+            logging.exception(
+                "智能体执行发生错误, 错误信息: %(error)s",
+                {"error": str(error) or "智能体出现未知错误"},
+            )
+            self._agent_queue_manager.publish_error(
+                input["task_id"],
+                f"智能体执行错误, 错误信息: {str(error) or '智能体出现未知错误'}",
+            )
+
     def stream(
         self,
         input: AgentState,
@@ -128,7 +143,7 @@ class BaseAgent:
 
         # 3.创建子线程并执行（LangGraph 的 invoke 为同步）
         thread = Thread(
-            target=self._agent.invoke,
+            target=self._invoke_agent,
             args=(input,),
         )
         thread.start()

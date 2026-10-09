@@ -122,6 +122,8 @@ class ReACTAgent(FunctionCallAgent):
         gathered = None
         is_first_chunk = True
         generation_type = ""
+        usage_metadata = None
+        thought_id = uuid.uuid4()
 
         # 5.流式输出调用LLM，并判断输出内容是否以"```json"为开头，用于区分工具调用和文本生成
         for chunk in llm.stream(state["messages"]):
@@ -131,6 +133,21 @@ class ReACTAgent(FunctionCallAgent):
                 is_first_chunk = False
             else:
                 gathered += chunk
+
+            # 6.1记录服务端返回的真实token用量（开启stream_usage时才存在）
+            if chunk.usage_metadata:
+                usage_metadata = chunk.usage_metadata
+
+            # 6.2检测思考模型输出的思考内容，推送为智能体推理事件（对应模型的深度思考能力）
+            reasoning_content = (chunk.additional_kwargs or {}).get("reasoning_content") or ""
+            if reasoning_content and ModelFeature.AGENT_THOUGHT in self.llm.features:
+                self.agent_queue_manager.publish(state["task_id"], AgentThought(
+                    id=thought_id,
+                    task_id=state["task_id"],
+                    event=QueueEvent.AGENT_THOUGHT,
+                    thought=reasoning_content,
+                    latency=(time.perf_counter() - start_at),
+                ))
 
             # 7.如果生成的是消息则提交智能体消息事件
             if generation_type == "message":
@@ -170,9 +187,13 @@ class ReACTAgent(FunctionCallAgent):
                             latency=(time.perf_counter() - start_at),
                         ))
 
-        # 8.计算LLM的输入+输出token总数
-        input_token_count = self.llm.get_num_tokens_from_messages(state["messages"])
-        output_token_count = self.llm.get_num_tokens_from_messages([gathered])
+        # 8.计算LLM的输入+输出token总数，优先使用服务端返回的真实用量，否则本地估算
+        if usage_metadata:
+            input_token_count = usage_metadata.get("input_tokens", 0)
+            output_token_count = usage_metadata.get("output_tokens", 0)
+        else:
+            input_token_count = self.llm.get_num_tokens_from_messages(state["messages"])
+            output_token_count = self.llm.get_num_tokens_from_messages([gathered])
 
         # 9.获取输入/输出价格和单位
         input_price, output_price, unit = self.llm.get_pricing()
@@ -180,6 +201,10 @@ class ReACTAgent(FunctionCallAgent):
         # 10.计算总token+总成本
         total_token_count = input_token_count + output_token_count
         total_price = (input_token_count * input_price + output_token_count * output_price) * unit
+
+        # 10.1如果流式输出无法识别生成类型（如思考模型未返回content），则按文本生成处理，确保流能够正常关闭
+        if not generation_type:
+            generation_type = "message"
 
         # 12.如果类型为推理则解析json，并添加智能体消息
         if generation_type == "thought":

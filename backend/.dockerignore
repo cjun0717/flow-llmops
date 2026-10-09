@@ -1,0 +1,15 @@
+.venv
+venv
+__pycache__
+*.pyc
+.pytest_cache
+.mypy_cache
+.ruff_cache
+tests
+logs
+docs
+.git
+.idea
+.vscode
+*.db
+*.sqlite

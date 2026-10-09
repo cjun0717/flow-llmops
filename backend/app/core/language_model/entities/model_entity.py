@@ -7,6 +7,7 @@
 """
 from abc import ABC
 from enum import Enum
+from math import ceil
 from typing import Any, Optional
 
 from langchain_core.language_models import BaseLanguageModel as LCBaseLanguageModel
@@ -93,6 +94,33 @@ class BaseLanguageModel(LCBaseLanguageModel, ABC):
 
         # 2.返回数据
         return input_price, output_price, unit
+
+    def get_num_tokens(self, text: str) -> int:
+        """本地token估算。
+
+        LangChain 1.x 移除了 BaseChatModel.get_num_tokens 系列的默认实现（旧版依赖
+        tiktoken 联网下载词表），这里提供离线估算：中日韩字符按 1 token/字，
+        其余文本按 4 字符/token。
+        """
+        if not text:
+            return 0
+        cjk_count = sum(1 for ch in text if "\u4e00" <= ch <= "\u9fff")
+        return cjk_count + ceil((len(text) - cjk_count) / 4)
+
+    def get_num_tokens_from_messages(self, messages: list) -> int:
+        """统计消息列表的token总数，支持字符串内容与多模态内容块"""
+        total_token_count = 0
+        for message in messages:
+            content = getattr(message, "content", "")
+            if isinstance(content, str):
+                total_token_count += self.get_num_tokens(content)
+            elif isinstance(content, list):
+                for part in content:
+                    if isinstance(part, str):
+                        total_token_count += self.get_num_tokens(part)
+                    elif isinstance(part, dict):
+                        total_token_count += self.get_num_tokens(str(part.get("text", "")))
+        return total_token_count
 
     def convert_to_human_message(self, query: str, image_urls: list[str] = None) -> HumanMessage:
         """将传递的query+image_url转换成人类消息HumanMessage，如果没有传递image_url或者该LLM不支持image_input，则直接返回普通人类消息"""

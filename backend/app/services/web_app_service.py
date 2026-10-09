@@ -224,6 +224,15 @@ class WebAppService:
                                 "total_price": agent_thought.total_price,
                                 "latency": agent_thought.latency,
                             })
+                    elif agent_thought.event == QueueEvent.AGENT_THOUGHT:
+                        # 思考模型流式输出的思考内容按id叠加，便于完整存储
+                        if event_id not in agent_thoughts:
+                            agent_thoughts[event_id] = agent_thought
+                        else:
+                            agent_thoughts[event_id] = agent_thoughts[event_id].model_copy(update={
+                                "thought": agent_thoughts[event_id].thought + agent_thought.thought,
+                                "latency": agent_thought.latency,
+                            })
                     else:
                         agent_thoughts[event_id] = agent_thought
 

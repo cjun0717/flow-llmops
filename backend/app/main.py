@@ -70,6 +70,11 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    # 健康检查（Docker healthcheck 用）
+    @app.get("/ping")
+    async def ping() -> dict:
+        return {"ping": "pong"}
+
     # 注册异常处理器
     register_exception_handlers(app)
     # 注册中间件
