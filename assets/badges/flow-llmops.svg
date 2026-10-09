@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="143" height="28" role="img" aria-label="Flow-LLMOps: v1.0">
+  <title>Flow-LLMOps: v1.0</title>
+  <g shape-rendering="crispEdges">
+    <rect width="97" height="28" fill="#555"/>
+    <rect x="97" width="46" height="28" fill="#6366F1"/>
+  </g>
+  <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="12" font-weight="bold">
+    <text x="48.5" y="19">Flow-LLMOps</text>
+    <text x="120.0" y="19">v1.0</text>
+  </g>
+</svg>

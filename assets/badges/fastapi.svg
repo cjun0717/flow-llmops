@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="104" height="20" role="img" aria-label="FastAPI: 0.139">
+  <title>FastAPI: 0.139</title>
+  <g shape-rendering="crispEdges">
+    <rect width="60" height="20" fill="#555"/>
+    <rect x="60" width="44" height="20" fill="#009688"/>
+  </g>
+  <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="11">
+    <text x="30.0" y="14">FastAPI</text>
+    <text x="82.0" y="14">0.139</text>
+  </g>
+</svg>
