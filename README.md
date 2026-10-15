@@ -192,7 +192,7 @@ VITE_API_PREFIX=http://localhost:8001/api/v1
 | SQLAlchemy 2.0 (asyncpg) | 异步 ORM |
 | Celery + Redis | 异步任务队列（文档处理 / 数据分析） |
 | LangChain 1.x + LangGraph | 模型接入 / Agent 编排 |
-| langchain-milvus | 向量检索 |
+| pymilvus | 向量检索（直连 Milvus，按维度分 collection） |
 | MinIO | 文件对象存储 |
 | Langfuse | LLM 全链路追踪 |
 
