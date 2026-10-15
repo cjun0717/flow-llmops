@@ -1,9 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""文件提取器（从 MinIO 加载文件 → LangChain 文档/字符串）。
-
-迁移自 imooc internal/core/file_extractor/file_extractor.py，将 COS 下载替换为 MinIO 下载。
-"""
+"""文件提取器（从 MinIO 加载文件 → LangChain 文档/字符串）。"""
 from __future__ import annotations
 
 import os.path
@@ -12,7 +9,12 @@ from pathlib import Path
 from typing import Union
 
 import requests
-from langchain_community.document_loaders import (
+from langchain_core.documents import Document as LCDocument
+from minio import Minio
+
+from app.config import settings
+from app.core.file_extractor.document_loaders import (
+    TextLoader,
     UnstructuredCSVLoader,
     UnstructuredExcelLoader,
     UnstructuredFileLoader,
@@ -21,12 +23,7 @@ from langchain_community.document_loaders import (
     UnstructuredPDFLoader,
     UnstructuredPowerPointLoader,
     UnstructuredXMLLoader,
-    TextLoader,
 )
-from langchain_core.documents import Document as LCDocument
-from minio import Minio
-
-from app.config import settings
 from app.models.upload_file import UploadFile
 
 
@@ -91,6 +88,10 @@ class FileExtractor:
             loader = UnstructuredPowerPointLoader(file_path)
         elif file_extension == ".xml":
             loader = UnstructuredXMLLoader(file_path)
+        elif file_extension == ".txt":
+            # 纯文本无需 unstructured 结构化分析，直接读取，
+            # 同时规避 unstructured 文本分区首次运行需联网下载 spaCy 模型的问题。
+            loader = TextLoader(file_path)
         else:
             loader = UnstructuredFileLoader(file_path) if is_unstructured else TextLoader(file_path)
 
